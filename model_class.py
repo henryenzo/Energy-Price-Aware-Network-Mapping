@@ -3,7 +3,7 @@
 
     I recall having a program that generates random graphs, it will be useful to test the model with different topologies and different parameters but that's not the purpose of this first draft
 
-    
+    TODO : I have a question relative to the flow conservation constraint. Is it really a sum over each j like in Trung's paper "Accelerating Network Slice Embedding..." or only the neighbours ? I considered only the neighbors here because it doesn't make any sense to map logical links to non-existing physical links, but maybe the variable has a hidden role.
 
     Created in June 16th, 2026 by Enzo Henry
 """
@@ -126,7 +126,7 @@ class NetworkMapping:
                         - self.phi_link[vlink, self.physical_link_index[(j, i)]] 
                         for j_index, j in enumerate(self.physGraph[i])
                     )
-                    == - self.phi_node[vlink, i_index] + self.phi_node[vlink+1, i_index] 
+                    == self.phi_node[vlink, i_index] - self.phi_node[vlink+1, i_index] 
                     # last line to be modified when we'll have more complicated VNF graphs, for now it's ok since we have a linear SFC
                                                                                                         
                 )
