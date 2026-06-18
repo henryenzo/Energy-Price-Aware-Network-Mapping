@@ -3,7 +3,7 @@
 
     I recall having a program that generates random graphs, it will be useful to test the model with different topologies and different parameters but that's not the purpose of this first draft
 
-    TODO tomorrow: restrain the link mapping variables to the physical links that are actually used in the mapping of the VNFs, and do something so it can't map every VNF on the access nodes (easy to do for now, might require a status when more users and more slices)
+    
 
     Created in June 16th, 2026 by Enzo Henry
 """
@@ -148,7 +148,7 @@ class NetworkMapping:
                         for v_index, v in enumerate(self.sfc)
                 ) <=  self.memory_availability[self.vertices_P()[i_index]]
             )
-            
+
         # And in terms of bandwidth usage
         for i, j in self.physical_links:
             self.gpmodel.addConstr(
@@ -173,7 +173,6 @@ class NetworkMapping:
                 self.phi_node[v, i] for v in range(len(self.sfc))
             ) for i in range(len(self.vertices_P()))
         )
-
         return self.Ce
     
     def objective_function(self):
@@ -204,14 +203,8 @@ class NetworkMapping:
                 print("Encountered an attribute error")
 
 
-# if __name__ == "__main__":
-#     network_mapping = NetworkMapping()
-#     network_mapping.compute_model()
-#     network_mapping.optimize()
-#     print("Physical Links:", network_mapping.physical_links)
-
 if __name__ == "__main__":
-    model = json_parser("model1")
+    model = json_parser("model2")
     network_mapping = NetworkMapping(model)
     network_mapping.compute_model()
     network_mapping.optimize()

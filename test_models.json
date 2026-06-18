@@ -22,7 +22,7 @@
             "model_name": "model2", 
             "description": "1 SFC, 2 real VNFs, 4 physical servers in a one-barred square and 2 access nodes",
             "model_parameters": {
-                "physGraph": {"i1": ["i2", "i3"], "i2": ["i1", "i4"], "i3": ["i1", "i4", "i5"], "i4": ["i2", "i3", "i5", "i6"], "i5": ["i3", "i6"], "i6": ["i4", "i5"]},
+                "physGraph": {"i1": ["i2", "i3"], "i2": ["i1", "i4"], "i3": ["i1", "i4", "i5"], "i4": ["i2", "i3", "i6"], "i5": ["i3", "i6"], "i6": ["i4", "i5"]},
                 "sfc": ["v1", "v2", "v3", "v4"],
                 "computing_availability":       {"i1": 5, "i2": 5, "i3": 5, "i4": 5, "i5": 5, "i6": 5},
                 "memory_availability":          {"i1": 5, "i2": 5, "i3": 5, "i4": 5, "i5": 5, "i6": 5},
