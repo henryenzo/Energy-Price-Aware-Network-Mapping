@@ -1,0 +1,30 @@
+{
+    "test_models": [
+        {
+            "model_name": "model1", 
+            "description": "1 SFC, 1 real VNF, 2 physical servers and 2 access nodes in a square",
+            "model_parameters": {
+                "physGraph": {"i1": ["i2", "i3"], "i2": ["i1", "i4"], "i3": ["i1", "i4"], "i4": ["i2", "i3"]},
+                "sfc": ["v1", "v2", "v3"],
+                "computing_availability": {"i1": 5, "i2": 5, "i3": 5, "i4": 5},
+                "memory_availability": {"i1": 5, "i2": 5, "i3": 5, "i4": 5},
+                "computing_requirements": {"v1": 2, "v2": 2, "v3": 2},
+                "memory_requirements": {"v1": 2, "v2": 2, "v3": 2},
+                "energy_price": {"i1": 1, "i2": 2, "i3": 3, "i4": 1}
+            }
+        },
+        {
+            "model_name": "model2", 
+            "description": "1 SFC, 2 real VNFs, 4 physical servers in a one-barred square and 2 access nodes",
+            "model_parameters": {
+                "physGraph": {"i1": ["i2", "i3"], "i2": ["i1", "i4"], "i3": ["i1", "i4", "i5"], "i4": ["i2", "i3", "i5", "i6"], "i5": ["i3", "i6"], "i6": ["i4", "i5"]},
+                "sfc": ["v1", "v2", "v3", "v4"],
+                "computing_availability": {"i1": 5, "i2": 5, "i3": 5, "i4": 5, "i5": 5, "i6": 5},
+                "memory_availability": {"i1": 5, "i2": 5, "i3": 5, "i4": 5, "i5": 5, "i6": 5},
+                "computing_requirements": {"v1": 2, "v2": 2, "v3": 2, "v4": 2},
+                "memory_requirements": {"v1": 2, "v2": 2, "v3": 2, "v4": 2},
+                "energy_price": {"i1": 1, "i2": 2, "i3": 3, "i4": 1, "i5": 2, "i6": 3}
+            }
+        }
+    ]
+}

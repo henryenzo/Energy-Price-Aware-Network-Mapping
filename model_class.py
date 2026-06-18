@@ -12,6 +12,22 @@ import gurobipy as gp
 from gurobipy import GRB
 import numpy as np
 import scipy.sparse as sp
+import json
+
+def json_parser(model_name: str, file_name = "test_models.json") -> dict:
+    """
+        json_parser returns a dict containing every paramters for the model (physGraph, sfc, availability, requirements etc)
+        Arguments:  model_name      "model1" for example
+                    file_name       not needed here
+    """
+    with open(file_name, 'r') as file:
+        test_models = json.load(file)["test_models"]
+    #print(test_models["test_models"])
+    for model in test_models:
+        if model["model_name"] == model_name:
+            return model["model_parameters"]
+    raise ValueError(f"Model '{model_name}' does not exist")
+
 
 
 # Once our program runs correctly, we can start to implement the classes that will represent our model. We will create a class for the physical servers, a class for the VNFs, and a class for the physical links. We will also create a class for the logical links that will connect the VNFs. Finally, we will create a class for the network mapping that will contain all of the other classes. 
@@ -40,10 +56,7 @@ class LogicalLink:
 
 class NetworkMapping:
     def __init__(self):
-        self.model = gp.Model("mip1")
-        self.__init__(self.model)
-    def __init__(self, model: gp.Model):
-        self.model = model
+        self.gpmodel = gp.Model("mip1")
         self.physGraph = {"i1": ["i2", "i3"], "i2": ["i1", "i4"], "i3": ["i1", "i4"], "i4": ["i2", "i3"]}
         self.sfc = ["v1", "v2", "v3"]
         self.logical_links = [(self.sfc[j], self.sfc[j+1]) for j in range(len(self.sfc)-1)]
@@ -56,20 +69,20 @@ class NetworkMapping:
         self.memory_availability    = {"i1": 5, "i2": 5, "i3": 5, "i4": 5}  # not implemented in the following yet
         self.energy_price           = {"i1": 1, "i2": 2, "i3": 3, "i4": 1}
         self.computing_requirements = {"v1": 2, "v2": 2, "v3": 2}
-    """
-    def __init__(self, model: gp.Model, parameters: dict):
-        self.model = model
-        self.physGraph = parameters["physGraph"]
-        self.sfc = parameters["sfc"]
+
+    def __init__(self, model: dict):
+        self.gpmodel = gp.Model("mip1")
+        self.physGraph = model["physGraph"]
+        self.sfc = model["sfc"]
         self.logical_links = [(self.sfc[j], self.sfc[j+1]) for j in range(len(self.sfc)-1)]
         self.physical_links = self.__generate_edges()
         self.physical_link_index = {tuple(edge): idx for idx, edge in enumerate(self.physical_links)}
 
-        self.computing_availability = parameters["computing_availability"]
-        self.memory_availability = parameters["memory_availability"]
-        self.energy_price = parameters["energy_price"]
+        self.computing_availability = model["computing_availability"]
+        self.memory_availability = model["memory_availability"]
+        self.energy_price = model["energy_price"]
 
-        self.computing_requirements = parameters["computing_requirements"]"""
+        self.computing_requirements = model["computing_requirements"]
 
     def vertices_P(self):
         """ returns the vertices of the graph """
@@ -92,19 +105,19 @@ class NetworkMapping:
     def generate_mapping_variables(self):
         """ generates the mapping variables for the VNFs to physical servers and for the logical links to physical links """
         # Numpy array of binary variables for the mapping of VNFs to physical servers (the only ones we need for now)
-        self.phi_node = self.model.addMVar((len(self.sfc), len(self.vertices_P())), vtype=GRB.BINARY, name="phi_nodes")
-        self.phi_link = self.model.addMVar((len(self.sfc)-1, len(self.edges_P())), vtype=GRB.BINARY, name="phi_link")
+        self.phi_node = self.gpmodel.addMVar((len(self.sfc), len(self.vertices_P())), vtype=GRB.BINARY, name="phi_nodes")
+        self.phi_link = self.gpmodel.addMVar((len(self.sfc)-1, len(self.edges_P())), vtype=GRB.BINARY, name="phi_link")
 
     def generate_mapping_constraints(self):
         # Each VNF must be mapped to exactly one physical server
         for v in range(len(self.sfc)):
-            self.model.addConstr(
+            self.gpmodel.addConstr(
                 gp.quicksum(self.phi_node[v, i] for i in range(len(self.vertices_P()))) == 1
             )
         # Flow conservation constraints for the logical links 
         for i_index, i in enumerate(self.vertices_P()):
             for vlink in range(len(self.logical_links)):
-                self.model.addConstr(
+                self.gpmodel.addConstr(
                     gp.quicksum(
                         self.phi_link[vlink, self.physical_link_index[(i, j)]] 
                         - self.phi_link[vlink, self.physical_link_index[(j, i)]] 
@@ -120,18 +133,18 @@ class NetworkMapping:
 
         ## In terms of computing resources only for now, memory is pretty much the same and as I said before I still have to figure out a good way to model bandwidth and edges 
         for i in range(1, len(self.vertices_P())-1):
-            self.model.addConstr(
+            self.gpmodel.addConstr(
                 gp.quicksum(self.phi_node[v, i] for v in range(len(self.sfc)))  <=  self.computing_availability[self.vertices_P()[i]]
             )
 
     def generate_access_nodes_constraints(self):
         # First VNF must be mapped to the access node i1 and the last VNF must be mapped to the access node i4 (or whatever the last node is)
-        self.model.addConstr(self.phi_node[0, 0] == 1)
-        self.model.addConstr(self.phi_node[len(self.sfc)-1, len(self.vertices_P())-1] == 1)
+        self.gpmodel.addConstr(self.phi_node[0, 0] == 1)
+        self.gpmodel.addConstr(self.phi_node[len(self.sfc)-1, len(self.vertices_P())-1] == 1)
         # and only those two VNFs can be mapped to the access nodes
         for v in range(1, len(self.sfc)-1):
-            self.model.addConstr(self.phi_node[v, 0] == 0)
-            self.model.addConstr(self.phi_node[v, len(self.vertices_P())-1] == 0)
+            self.gpmodel.addConstr(self.phi_node[v, 0] == 0)
+            self.gpmodel.addConstr(self.phi_node[v, len(self.vertices_P())-1] == 0)
 
     def energy_cost(self):
         self.Ce = gp.quicksum(
@@ -143,7 +156,7 @@ class NetworkMapping:
         return self.Ce
     
     def objective_function(self):
-        self.model.setObjective(self.energy_cost(), GRB.MINIMIZE)
+        self.gpmodel.setObjective(self.energy_cost(), GRB.MINIMIZE)
 
     def compute_model(self):
         self.generate_mapping_variables()
@@ -154,15 +167,15 @@ class NetworkMapping:
 
     def optimize(self):
             try:
-                self.model.optimize()
-                if self.model.Status == GRB.OPTIMAL:
-                    for v in self.model.getVars():
+                self.gpmodel.optimize()
+                if self.gpmodel.Status == GRB.OPTIMAL:
+                    for v in self.gpmodel.getVars():
                         print(f"{v.VarName} {v.X:g}")
-                    print(f"Obj: {self.model.ObjVal:g}")
-                elif self.model.Status == GRB.INFEASIBLE:
+                    print(f"Obj: {self.gpmodel.ObjVal:g}")
+                elif self.gpmodel.Status == GRB.INFEASIBLE:
                     print("Model is infeasible")
                 else:
-                    print(f"Optimization finished with status {self.model.Status}")
+                    print(f"Optimization finished with status {self.gpmodel.Status}")
 
             except gp.GurobiError as e:
                 print(f"Error code {e.errno}: {e}")
@@ -170,10 +183,15 @@ class NetworkMapping:
                 print("Encountered an attribute error")
 
 
+# if __name__ == "__main__":
+#     network_mapping = NetworkMapping()
+#     network_mapping.compute_model()
+#     network_mapping.optimize()
+#     print("Physical Links:", network_mapping.physical_links)
+
 if __name__ == "__main__":
-    model = gp.Model("mip1")
+    model = json_parser("model1")
     network_mapping = NetworkMapping(model)
     network_mapping.compute_model()
     network_mapping.optimize()
     print("Physical Links:", network_mapping.physical_links)
-
