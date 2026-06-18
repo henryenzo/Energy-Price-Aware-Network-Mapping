@@ -75,14 +75,17 @@ class NetworkMapping:
         self.physGraph = model["physGraph"]
         self.sfc = model["sfc"]
         self.logical_links = [(self.sfc[j], self.sfc[j+1]) for j in range(len(self.sfc)-1)]
-        self.physical_links = self.__generate_edges()
+        self.physical_links = self.__generate_edges()       # list of 2-list representing an edge 
         self.physical_link_index = {tuple(edge): idx for idx, edge in enumerate(self.physical_links)}
 
         self.computing_availability = model["computing_availability"]
-        self.memory_availability = model["memory_availability"]
-        self.energy_price = model["energy_price"]
+        self.memory_availability    = model["memory_availability"]
+        self.bandwidth_availability = [model["bandwidth_availability_dict"][vertex][neighbor] for vertex, neighbor in self.physical_links]
 
+        self.energy_price           = model["energy_price"]
         self.computing_requirements = model["computing_requirements"]
+        self.memory_requirements    = model["memory_requirements"]
+        self.bandwidth_requirement  = model["bandwidth_requirements"]       # meant to be a simple list
 
     def vertices_P(self):
         """ returns the vertices of the graph """
@@ -123,18 +126,36 @@ class NetworkMapping:
                         - self.phi_link[vlink, self.physical_link_index[(j, i)]] 
                         for j_index, j in enumerate(self.physGraph[i])
                     )
-                    == self.phi_node[vlink, i_index] - self.phi_node[vlink+1, i_index] 
+                    == - self.phi_node[vlink, i_index] + self.phi_node[vlink+1, i_index] 
                     # last line to be modified when we'll have more complicated VNF graphs, for now it's ok since we have a linear SFC
                                                                                                         
                 )
 
     def generate_availability_constraints(self):
-        # Availability constraints for the physical servers
-
-        ## In terms of computing resources only for now, memory is pretty much the same and as I said before I still have to figure out a good way to model bandwidth and edges 
-        for i in range(1, len(self.vertices_P())-1):
+        # Availability constraints for the physical servers only, access nodes excluded in the range
+        for i_index in range(1, len(self.vertices_P())-1):
+            # In terms of computing resource
             self.gpmodel.addConstr(
-                gp.quicksum(self.phi_node[v, i] for v in range(len(self.sfc)))  <=  self.computing_availability[self.vertices_P()[i]]
+                gp.quicksum(
+                    self.phi_node[v_index, i_index] * self.computing_requirements[v] 
+                        for v_index, v in enumerate(self.sfc)
+                ) <=  self.computing_availability[self.vertices_P()[i_index]]
+            )
+            # In terms of memory resource
+            self.gpmodel.addConstr(
+                gp.quicksum(
+                    self.phi_node[v_index, i_index] * self.memory_requirements[v] 
+                        for v_index, v in enumerate(self.sfc)
+                ) <=  self.memory_availability[self.vertices_P()[i_index]]
+            )
+            
+        # And in terms of bandwidth usage
+        for i, j in self.physical_links:
+            self.gpmodel.addConstr(
+                gp.quicksum(
+                    self.phi_link[v_link, self.physical_link_index[(i, j)]] * self.bandwidth_requirement[v_link] 
+                        for v_link in range(len(self.logical_links))
+                ) <= self.bandwidth_availability[self.physical_link_index[(i, j)]]
             )
 
     def generate_access_nodes_constraints(self):
