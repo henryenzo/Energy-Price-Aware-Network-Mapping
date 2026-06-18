@@ -1,0 +1,179 @@
+""" PERSONAL NOTES AND COMMENTS
+    This program is a simple implementation of the energy price aware network mapping problem for Infrastructure Providers (InP) to reduce their energy costs. The first implementation will take only into account a fraction of the constraints in my draft, and with a not-yet proper modeling of the physical and logical graphs, but it will be a good starting point to test the model and then we can start to add more constraints and a better modeling of the graphs.
+
+    I recall having a program that generates random graphs, it will be useful to test the model with different topologies and different parameters but that's not the purpose of this first draft
+
+    TODO tomorrow: restrain the link mapping variables to the physical links that are actually used in the mapping of the VNFs, and do something so it can't map every VNF on the access nodes (easy to do for now, might require a status when more users and more slices)
+
+    Created in June 16th, 2026 by Enzo Henry
+"""
+
+import gurobipy as gp
+from gurobipy import GRB
+import numpy as np
+import scipy.sparse as sp
+
+
+# Once our program runs correctly, we can start to implement the classes that will represent our model. We will create a class for the physical servers, a class for the VNFs, and a class for the physical links. We will also create a class for the logical links that will connect the VNFs. Finally, we will create a class for the network mapping that will contain all of the other classes. 
+class Server:
+    def __init__(self, name, memory=0, CPU=0):
+        self.name = name
+        self.memory = memory
+        self.CPU = CPU
+        self.vnfs = []  # List of VNFs hosted on the server
+class VNF:
+    def __init__(self, name, memory=0, CPU=0):
+        self.name = name
+        self.memory = memory
+        self.CPU = CPU
+class PhysLink:
+    def __init__(self, server1: Server, server2: Server, bandwidth=0):
+        self.server1 = server1
+        self.server2 = server2
+        self.bandwidth = bandwidth
+class LogicalLink:
+    def __init__(self, vnf1: VNF, vnf2: VNF, bandwidth=0):
+        self.vnf1 = vnf1
+        self.vnf2 = vnf2
+        self.bandwidth = bandwidth
+
+
+class NetworkMapping:
+    def __init__(self):
+        self.model = gp.Model("mip1")
+        self.__init__(self.model)
+    def __init__(self, model: gp.Model):
+        self.model = model
+        self.physGraph = {"i1": ["i2", "i3"], "i2": ["i1", "i4"], "i3": ["i1", "i4"], "i4": ["i2", "i3"]}
+        self.sfc = ["v1", "v2", "v3"]
+        self.logical_links = [(self.sfc[j], self.sfc[j+1]) for j in range(len(self.sfc)-1)]
+        self.physical_links = self.__generate_edges()
+        self.physical_link_index = {tuple(edge): idx for idx, edge in enumerate(self.physical_links)}
+
+        # model parameters : later they will be in their own class, but now we just want to test the model with some dummy values
+        # ah and only computing for the moment. Memory is analogous and I still have to figure out a good way to model bandwidth and edges
+        self.computing_availability = {"i1": 5, "i2": 5, "i3": 5, "i4": 5}
+        self.memory_availability    = {"i1": 5, "i2": 5, "i3": 5, "i4": 5}  # not implemented in the following yet
+        self.energy_price           = {"i1": 1, "i2": 2, "i3": 3, "i4": 1}
+        self.computing_requirements = {"v1": 2, "v2": 2, "v3": 2}
+    """
+    def __init__(self, model: gp.Model, parameters: dict):
+        self.model = model
+        self.physGraph = parameters["physGraph"]
+        self.sfc = parameters["sfc"]
+        self.logical_links = [(self.sfc[j], self.sfc[j+1]) for j in range(len(self.sfc)-1)]
+        self.physical_links = self.__generate_edges()
+        self.physical_link_index = {tuple(edge): idx for idx, edge in enumerate(self.physical_links)}
+
+        self.computing_availability = parameters["computing_availability"]
+        self.memory_availability = parameters["memory_availability"]
+        self.energy_price = parameters["energy_price"]
+
+        self.computing_requirements = parameters["computing_requirements"]"""
+
+    def vertices_P(self):
+        """ returns the vertices of the graph """
+        return list(self.physGraph.keys())
+    
+    def edges_P(self):
+        """ returns the edges of the graph """
+        # return self.__generate_edges()
+        return self.physical_links
+    
+    def __generate_edges(self):
+        """ generates the edges of the graph obtained by BFS from i1 to last, as a list of 2-lists, each 2-list representing an edge """
+        edges = []
+        for vertex in self.physGraph:
+            for neighbour in self.physGraph[vertex]:
+                if (neighbour, vertex) not in edges:
+                    edges.append([vertex, neighbour])
+        return edges
+
+    def generate_mapping_variables(self):
+        """ generates the mapping variables for the VNFs to physical servers and for the logical links to physical links """
+        # Numpy array of binary variables for the mapping of VNFs to physical servers (the only ones we need for now)
+        self.phi_node = self.model.addMVar((len(self.sfc), len(self.vertices_P())), vtype=GRB.BINARY, name="phi_nodes")
+        self.phi_link = self.model.addMVar((len(self.sfc)-1, len(self.edges_P())), vtype=GRB.BINARY, name="phi_link")
+
+    def generate_mapping_constraints(self):
+        # Each VNF must be mapped to exactly one physical server
+        for v in range(len(self.sfc)):
+            self.model.addConstr(
+                gp.quicksum(self.phi_node[v, i] for i in range(len(self.vertices_P()))) == 1
+            )
+        # Flow conservation constraints for the logical links 
+        for i_index, i in enumerate(self.vertices_P()):
+            for vlink in range(len(self.logical_links)):
+                self.model.addConstr(
+                    gp.quicksum(
+                        self.phi_link[vlink, self.physical_link_index[(i, j)]] 
+                        - self.phi_link[vlink, self.physical_link_index[(j, i)]] 
+                        for j_index, j in enumerate(self.physGraph[i])
+                    )
+                    == self.phi_node[vlink, i_index] - self.phi_node[vlink+1, i_index] 
+                    # last line to be modified when we'll have more complicated VNF graphs, for now it's ok since we have a linear SFC
+                                                                                                        
+                )
+
+    def generate_availability_constraints(self):
+        # Availability constraints for the physical servers
+
+        ## In terms of computing resources only for now, memory is pretty much the same and as I said before I still have to figure out a good way to model bandwidth and edges 
+        for i in range(1, len(self.vertices_P())-1):
+            self.model.addConstr(
+                gp.quicksum(self.phi_node[v, i] for v in range(len(self.sfc)))  <=  self.computing_availability[self.vertices_P()[i]]
+            )
+
+    def generate_access_nodes_constraints(self):
+        # First VNF must be mapped to the access node i1 and the last VNF must be mapped to the access node i4 (or whatever the last node is)
+        self.model.addConstr(self.phi_node[0, 0] == 1)
+        self.model.addConstr(self.phi_node[len(self.sfc)-1, len(self.vertices_P())-1] == 1)
+        # and only those two VNFs can be mapped to the access nodes
+        for v in range(1, len(self.sfc)-1):
+            self.model.addConstr(self.phi_node[v, 0] == 0)
+            self.model.addConstr(self.phi_node[v, len(self.vertices_P())-1] == 0)
+
+    def energy_cost(self):
+        self.Ce = gp.quicksum(
+            self.energy_price[self.vertices_P()[i]] * gp.quicksum(
+                self.phi_node[v, i] for v in range(len(self.sfc))
+            ) for i in range(len(self.vertices_P()))
+        )
+
+        return self.Ce
+    
+    def objective_function(self):
+        self.model.setObjective(self.energy_cost(), GRB.MINIMIZE)
+
+    def compute_model(self):
+        self.generate_mapping_variables()
+        self.generate_mapping_constraints()
+        self.generate_availability_constraints()
+        self.generate_access_nodes_constraints()
+        self.objective_function()
+
+    def optimize(self):
+            try:
+                self.model.optimize()
+                if self.model.Status == GRB.OPTIMAL:
+                    for v in self.model.getVars():
+                        print(f"{v.VarName} {v.X:g}")
+                    print(f"Obj: {self.model.ObjVal:g}")
+                elif self.model.Status == GRB.INFEASIBLE:
+                    print("Model is infeasible")
+                else:
+                    print(f"Optimization finished with status {self.model.Status}")
+
+            except gp.GurobiError as e:
+                print(f"Error code {e.errno}: {e}")
+            except AttributeError:
+                print("Encountered an attribute error")
+
+
+if __name__ == "__main__":
+    model = gp.Model("mip1")
+    network_mapping = NetworkMapping(model)
+    network_mapping.compute_model()
+    network_mapping.optimize()
+    print("Physical Links:", network_mapping.physical_links)
+
