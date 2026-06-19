@@ -5,6 +5,14 @@
 
     TODO : I have a question relative to the flow conservation constraint. Is it really a sum over each j like in Trung's paper "Accelerating Network Slice Embedding..." or only the neighbours ? I considered only the neighbors here because it doesn't make any sense to map logical links to non-existing physical links, but maybe the variable has a hidden role.
 
+    TODO : implement fix and variable cost from Trung's paper "Admission control..."
+
+    TODO : implement visual representation with graphviz, highlighting the mapping 
+
+    TODO : indicate which parameter is limitant in case of unsolvable model
+
+    TODO : README, docstring and comments --> github
+
     Created in June 16th, 2026 by Enzo Henry
 """
 
@@ -13,6 +21,7 @@ from gurobipy import GRB
 import numpy as np
 import scipy.sparse as sp
 import json
+import graphviz
 
 def json_parser(model_name: str, file_name = "test_models.json") -> dict:
     """
@@ -58,6 +67,9 @@ class NetworkMapping:
     def __init__(self):
         self.gpmodel = gp.Model("mip1")
         self.physGraph = {"i1": ["i2", "i3"], "i2": ["i1", "i4"], "i3": ["i1", "i4"], "i4": ["i2", "i3"]}
+        self.physical_nodes = list(self.physGraph.keys())
+        self.physical_nodes_index = {node: idx for idx, node in enumerate(self.physical_nodes)}
+
         self.sfc = ["v1", "v2", "v3"]
         self.logical_links = [(self.sfc[j], self.sfc[j+1]) for j in range(len(self.sfc)-1)]
         self.physical_links = self.__generate_edges()
@@ -72,7 +84,10 @@ class NetworkMapping:
 
     def __init__(self, model: dict):
         self.gpmodel = gp.Model("mip1")
+        self.optimized_flag = 0
         self.physGraph = model["physGraph"]
+        self.physical_nodes = list(self.physGraph.keys())
+        self.physical_nodes_index = {node: idx for idx, node in enumerate(self.physical_nodes)}
         self.sfc = model["sfc"]
         self.logical_links = [(self.sfc[j], self.sfc[j+1]) for j in range(len(self.sfc)-1)]
         self.physical_links = self.__generate_edges()       # list of 2-list representing an edge 
@@ -83,8 +98,8 @@ class NetworkMapping:
         self.bandwidth_availability = [model["bandwidth_availability_dict"][vertex][neighbor] for vertex, neighbor in self.physical_links]
 
         self.energy_price           = model["energy_price"]
-        self.computing_requirements = model["computing_requirements"]
-        self.memory_requirements    = model["memory_requirements"]
+        self.computing_requirements = model["computing_requirements"]       # dict of computing requirement for each VNF
+        self.memory_requirements    = model["memory_requirements"]          # dict as well
         self.bandwidth_requirement  = model["bandwidth_requirements"]       # meant to be a simple list
 
     def vertices_P(self):
@@ -112,6 +127,7 @@ class NetworkMapping:
         self.phi_link = self.gpmodel.addMVar((len(self.sfc)-1, len(self.edges_P())), vtype=GRB.BINARY, name="phi_link")
 
     def generate_mapping_constraints(self):
+        """ generates the mapping constraints on phi_node and phi_link """
         # Each VNF must be mapped to exactly one physical server
         for v in range(len(self.sfc)):
             self.gpmodel.addConstr(
@@ -192,6 +208,7 @@ class NetworkMapping:
                     for v in self.gpmodel.getVars():
                         print(f"{v.VarName} {v.X:g}")
                     print(f"Obj: {self.gpmodel.ObjVal:g}")
+                    self.optimized_flag = 1
                 elif self.gpmodel.Status == GRB.INFEASIBLE:
                     print("Model is infeasible")
                 else:
@@ -201,6 +218,43 @@ class NetworkMapping:
                 print(f"Error code {e.errno}: {e}")
             except AttributeError:
                 print("Encountered an attribute error")
+    
+    def plot_graph(self):
+        """ 
+            plots the physical graph highlighting the mapping, with labels indicating the resource capabilities (a_i and a_ij)
+            For now, I restricted to 1 color, maybe I'll implement a gradient or rainbow colors to better visualize the mapping
+            Saves the plot as  ./plots/physical_graph.svg
+        """
+
+        assert self.optimized_flag, "The model must be optimized in order to generate the graph"
+        g = graphviz.Digraph(
+            "physical_graph",               # name of the graph
+            filename="physical_graph",      # name of the file
+            engine='neato',                 # layout engine (neato produces )
+            format='pdf',                   # output format
+            #rankdir='LR',                  # direction of the graph (LR = left to right), but this parameternot supported by neato
+        )
+
+        for i, j in self.physical_links:
+            i_used  =   sum(self.phi_node.X[v, self.physical_nodes_index[i]]            for v in range(len(self.sfc)))
+            j_used  =   sum(self.phi_node.X[v, self.physical_nodes_index[j]]            for v in range(len(self.sfc)))
+            ij_used =   sum(self.phi_link.X[v_link, self.physical_link_index[(i, j)]]        for v_link in range(len(self.logical_links)))
+
+            link_label = f"{self.phi_link.X[:, self.physical_link_index[(i, j)]] @ self.bandwidth_requirement[:]}/{self.bandwidth_availability[self.physical_link_index[(i, j)]]}"
+            node_i_label = f"{i} \n c: {sum(self.phi_node.X[index_v, self.physical_nodes_index[i]] * self.computing_requirements[v] for index_v, v in enumerate(self.sfc))}/{self.computing_availability[i]} \n m: {sum(self.phi_node.X[index_v, self.physical_nodes_index[i]] * self.memory_requirements[v] for index_v, v in enumerate(self.sfc))}/{self.memory_availability[i]}"
+            node_j_label = f"{j} \n c: {sum(self.phi_node.X[index_v, self.physical_nodes_index[j]] * self.computing_requirements[v] for index_v, v in enumerate(self.sfc))}/{self.computing_availability[j]} \n m: {sum(self.phi_node.X[index_v, self.physical_nodes_index[j]] * self.memory_requirements[v] for index_v, v in enumerate(self.sfc))}/{self.memory_availability[j]}"
+            if ij_used:
+                g.edge(i, j, label=link_label, fontsize='10', color='red', fontcolor='red')
+            if i_used:
+                g.node(i, label=node_i_label, fontsize='10', color='red', fontcolor='red')
+            if j_used:
+                g.node(j, label=node_j_label, fontsize='10', color='red', fontcolor='red')
+            else:
+                g.edge(i, j, label=str(self.bandwidth_availability[self.physical_link_index[(i, j)]]), fontsize='10')
+
+        g.node(self.physical_nodes[0], color='blue', fontcolor='blue')
+        g.node(self.physical_nodes[-1], color='blue', fontcolor='blue')
+        g.render(directory='./plots', cleanup=True)
 
 
 if __name__ == "__main__":
@@ -209,3 +263,4 @@ if __name__ == "__main__":
     network_mapping.compute_model()
     network_mapping.optimize()
     print("Physical Links:", network_mapping.physical_links)
+    network_mapping.plot_graph()
