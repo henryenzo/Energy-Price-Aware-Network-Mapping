@@ -225,7 +225,6 @@ class NetworkMapping:
             For now, I restricted to 1 color, maybe I'll implement a gradient or rainbow colors to better visualize the mapping
             Saves the plot as  ./plots/physical_graph.svg
         """
-
         assert self.optimized_flag, "The model must be optimized in order to generate the graph"
         g = graphviz.Digraph(
             "physical_graph",               # name of the graph
@@ -234,7 +233,8 @@ class NetworkMapping:
             format='pdf',                   # output format
             #rankdir='LR',                  # direction of the graph (LR = left to right), but this parameternot supported by neato
         )
-
+        g.attr(overlap='false')
+        g.attr(sep='+0')
         for i, j in self.physical_links:
             i_used  =   sum(self.phi_node.X[v, self.physical_nodes_index[i]]            for v in range(len(self.sfc)))
             j_used  =   sum(self.phi_node.X[v, self.physical_nodes_index[j]]            for v in range(len(self.sfc)))
