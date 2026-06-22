@@ -6,7 +6,7 @@ This is a very simplified model for now but I will increase the number of variab
 
 ## Example of a simple SFC mapped into a Physical Network graph
 
-![Physical graph example](physical_graph_example.pdf)
+![Physical graph example](physical_graph_example.svg "Graph plot of the model 2 mapping ")
 
 The red nodes are used to host VNFs, the red links are used to convey the data flow between VNFs. 
 
@@ -15,4 +15,4 @@ By default, and for now, the first "VNF" is a fictious one and can only be mappe
 On every used server is written the list of VNFs hosted by this server and the computing/memory resources used and available. On every used physical link is written the bandwidth used and available.
 
 
-These graphs are automatically generated with the help of neato engine from ``graphviz`` python module
+These graphs plots are automatically generated with the help of neato engine from ``graphviz`` python module
