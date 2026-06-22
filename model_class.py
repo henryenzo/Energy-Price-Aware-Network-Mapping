@@ -236,18 +236,20 @@ class NetworkMapping:
         g.attr(overlap='false')
         g.attr(sep='+0')
         for i, j in self.physical_links:
-            i_used  =   sum(self.phi_node.X[v, self.physical_nodes_index[i]]            for v in range(len(self.sfc)))
-            j_used  =   sum(self.phi_node.X[v, self.physical_nodes_index[j]]            for v in range(len(self.sfc)))
-            ij_used =   sum(self.phi_link.X[v_link, self.physical_link_index[(i, j)]]        for v_link in range(len(self.logical_links)))
+            i_used  =   [self.sfc[v] for v in range(len(self.sfc)) if self.phi_node.X[v, self.physical_nodes_index[i]]]
+            j_used  =   [self.sfc[v] for v in range(len(self.sfc)) if self.phi_node.X[v, self.physical_nodes_index[j]]]
+            ij_used =   [self.logical_links[v_link] for v_link in range(len(self.logical_links)) if self.phi_link.X[v_link, self.physical_link_index[(i, j)]]]
 
             link_label = f"{self.phi_link.X[:, self.physical_link_index[(i, j)]] @ self.bandwidth_requirement[:]}/{self.bandwidth_availability[self.physical_link_index[(i, j)]]}"
-            node_i_label = f"{i} \n c: {sum(self.phi_node.X[index_v, self.physical_nodes_index[i]] * self.computing_requirements[v] for index_v, v in enumerate(self.sfc))}/{self.computing_availability[i]} \n m: {sum(self.phi_node.X[index_v, self.physical_nodes_index[i]] * self.memory_requirements[v] for index_v, v in enumerate(self.sfc))}/{self.memory_availability[i]}"
-            node_j_label = f"{j} \n c: {sum(self.phi_node.X[index_v, self.physical_nodes_index[j]] * self.computing_requirements[v] for index_v, v in enumerate(self.sfc))}/{self.computing_availability[j]} \n m: {sum(self.phi_node.X[index_v, self.physical_nodes_index[j]] * self.memory_requirements[v] for index_v, v in enumerate(self.sfc))}/{self.memory_availability[j]}"
-            if ij_used:
+
+            node_i_label = f"{i} ({i_used}) \n c: {sum(self.phi_node.X[index_v, self.physical_nodes_index[i]] * self.computing_requirements[v] for index_v, v in enumerate(self.sfc))}/{self.computing_availability[i]} \n m: {sum(self.phi_node.X[index_v, self.physical_nodes_index[i]] * self.memory_requirements[v] for index_v, v in enumerate(self.sfc))}/{self.memory_availability[i]}"
+            
+            node_j_label = f"{j} ({j_used}) \n c: {sum(self.phi_node.X[index_v, self.physical_nodes_index[j]] * self.computing_requirements[v] for index_v, v in enumerate(self.sfc))}/{self.computing_availability[j]} \n m: {sum(self.phi_node.X[index_v, self.physical_nodes_index[j]] * self.memory_requirements[v] for index_v, v in enumerate(self.sfc))}/{self.memory_availability[j]}"
+            if len(ij_used) > 0:
                 g.edge(i, j, label=link_label, fontsize='10', color='red', fontcolor='red')
-            if i_used:
+            if len(i_used) > 0:
                 g.node(i, label=node_i_label, fontsize='10', color='red', fontcolor='red')
-            if j_used:
+            if len(j_used) > 0:
                 g.node(j, label=node_j_label, fontsize='10', color='red', fontcolor='red')
             else:
                 g.edge(i, j, label=str(self.bandwidth_availability[self.physical_link_index[(i, j)]]), fontsize='10')
