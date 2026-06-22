@@ -10,7 +10,7 @@ This is a very simplified model for now but I will increase the number of variab
 
 The red nodes are used to host VNFs, the red links are used to convey the data flow between VNFs. 
 
-By default, and for now, the first "VNF" is a fictious one and can only be mapped to the first node which is an access node and not a server. Same goes for the last one. Only the middle VNFs can freely be mapped to the rest of the servers network.
+By default, and for now, the first "VNF" is a fictious one and can only be mapped to the first node which is an access node (in blue) and not a server (in red and black). Same goes for the last one. Only the middle VNFs can freely be mapped to the rest of the servers network.
 
 On every used server is written the list of VNFs hosted by this server and the computing/memory resources used and available. On every used physical link is written the bandwidth used and available.
 

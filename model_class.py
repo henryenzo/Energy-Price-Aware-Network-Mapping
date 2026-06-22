@@ -5,13 +5,9 @@
 
     TODO : I have a question relative to the flow conservation constraint. Is it really a sum over each j like in Trung's paper "Accelerating Network Slice Embedding..." or only the neighbours ? I considered only the neighbors here because it doesn't make any sense to map logical links to non-existing physical links, but maybe the variable has a hidden role.
 
-    TODO : implement fix and variable cost from Trung's paper "Admission control..."
-
-    TODO : implement visual representation with graphviz, highlighting the mapping 
-
     TODO : indicate which parameter is limitant in case of unsolvable model
 
-    TODO : README, docstring and comments --> github
+    TODO : add the time dimension now... looks like a big part of the problem though
 
     Created in June 16th, 2026 by Enzo Henry
 """
@@ -22,6 +18,7 @@ import numpy as np
 import scipy.sparse as sp
 import json
 import graphviz
+from pathlib import Path
 
 def json_parser(model_name: str, file_name = "test_models.json") -> dict:
     """
@@ -40,6 +37,7 @@ def json_parser(model_name: str, file_name = "test_models.json") -> dict:
 
 
 # Once our program runs correctly, we can start to implement the classes that will represent our model. We will create a class for the physical servers, a class for the VNFs, and a class for the physical links. We will also create a class for the logical links that will connect the VNFs. Finally, we will create a class for the network mapping that will contain all of the other classes. 
+# after all, maybe we don't need this at all. Everything we need is already in the json file and we can just use the dict to access the parameters. But maybe a function that generates the model from a more usable format would be useful. We'll see
 class Server:
     def __init__(self, name, memory=0, CPU=0):
         self.name = name
@@ -97,10 +95,15 @@ class NetworkMapping:
         self.memory_availability    = model["memory_availability"]
         self.bandwidth_availability = [model["bandwidth_availability_dict"][vertex][neighbor] for vertex, neighbor in self.physical_links]
 
-        self.energy_price           = model["energy_price"]
         self.computing_requirements = model["computing_requirements"]       # dict of computing requirement for each VNF
         self.memory_requirements    = model["memory_requirements"]          # dict as well
         self.bandwidth_requirement  = model["bandwidth_requirements"]       # meant to be a simple list
+
+        self.energy_price           = model["energy_price"]
+        self.CPU_usage_price        = model["CPU_usage_price"]
+        self.memory_usage_price     = model["memory_usage_price"]
+        self.bandwidth_usage_price  = model["bandwidth_usage_price"]
+        self.node_disposal_price    = model["node_disposal_price"]
 
     def vertices_P(self):
         """ returns the vertices of the graph """
@@ -125,6 +128,10 @@ class NetworkMapping:
         # Numpy array of binary variables for the mapping of VNFs to physical servers (the only ones we need for now)
         self.phi_node = self.gpmodel.addMVar((len(self.sfc), len(self.vertices_P())), vtype=GRB.BINARY, name="phi_nodes")
         self.phi_link = self.gpmodel.addMVar((len(self.sfc)-1, len(self.edges_P())), vtype=GRB.BINARY, name="phi_link")
+        # node activation variables, sigma_i = 1 if at least one VNF is mapped to node i, 0 otherwise
+        self.sigma = self.gpmodel.addMVar((len(self.vertices_P()),), vtype=GRB.BINARY, name="sigma")
+        # migration variables, xi_v,i = 1 if VNF v is migrated to node i, 0 otherwise
+        #self.xi = self.gpmodel.addMVar((len(self.sfc), len(self.vertices_P())), vtype=GRB.BINARY, name="xi")
 
     def generate_mapping_constraints(self):
         """ generates the mapping constraints on phi_node and phi_link """
@@ -143,9 +150,17 @@ class NetworkMapping:
                         for j_index, j in enumerate(self.physGraph[i])
                     )
                     == self.phi_node[vlink, i_index] - self.phi_node[vlink+1, i_index] 
-                    # last line to be modified when we'll have more complicated VNF graphs, for now it's ok since we have a linear SFC
-                                                                                                        
+                    # last line to be modified when we'll have more complicated VNF graphs, for now it's ok since we have a linear SFC                                                  
                 )
+    
+    def generate_node_activation_constraints(self):
+        # sigma_i = 1 if at least one VNF is mapped to node i, 0 otherwise
+        # addGenConstrOr is a Gurobi function that takes the logical OR of a list of binary variables, here all the mapped VNFs to node i
+        for i_index in range(len(self.vertices_P())):
+            self.gpmodel.addGenConstrOr(        
+                self.sigma[i_index],
+                [self.phi_node[v, i_index] for v in range(len(self.sfc))]
+            )
 
     def generate_availability_constraints(self):
         # Availability constraints for the physical servers only, access nodes excluded in the range
@@ -191,8 +206,29 @@ class NetworkMapping:
         )
         return self.Ce
     
+    def disposal_cost(self):
+        self.Cf = gp.quicksum(
+            self.node_disposal_price[self.vertices_P()[i]] * self.sigma[i] for i in range(len(self.vertices_P()))
+        )
+        return self.Cf
+    
+    def usage_cost(self):
+        self.Cr = gp.quicksum(
+            gp.quicksum(
+                self.CPU_usage_price[self.vertices_P()[i]] * self.phi_node[v, i] * self.computing_requirements[self.sfc[v]] for v in range(len(self.sfc))
+            ) 
+            + gp.quicksum(
+                self.memory_usage_price[self.vertices_P()[i]] * self.phi_node[v, i] * self.memory_requirements[self.sfc[v]] for v in range(len(self.sfc))
+            ) 
+            + gp.quicksum(
+                self.bandwidth_usage_price[self.vertices_P()[i]][self.vertices_P()[j]] * self.phi_link[v_link, self.physical_link_index[(self.vertices_P()[i], self.vertices_P()[j])]] * self.bandwidth_requirement[v_link] for v_link in range(len(self.logical_links)) for j in range(len(self.vertices_P())) if (self.vertices_P()[i], self.vertices_P()[j]) in self.physical_links
+            )
+            for i in range(len(self.vertices_P()))
+        )
+        return self.Cr
+
     def objective_function(self):
-        self.gpmodel.setObjective(self.energy_cost(), GRB.MINIMIZE)
+        self.gpmodel.setObjective(self.energy_cost() + self.usage_cost() + self.disposal_cost(), GRB.MINIMIZE)
 
     def compute_model(self):
         self.generate_mapping_variables()
@@ -209,6 +245,7 @@ class NetworkMapping:
                         print(f"{v.VarName} {v.X:g}")
                     print(f"Obj: {self.gpmodel.ObjVal:g}")
                     self.optimized_flag = 1
+                    self.plot_graph()
                 elif self.gpmodel.Status == GRB.INFEASIBLE:
                     print("Model is infeasible")
                 else:
@@ -219,20 +256,23 @@ class NetworkMapping:
             except AttributeError:
                 print("Encountered an attribute error")
     
-    def plot_graph(self):
+    def plot_graph(self, graph_name="physical_graph"):
         """ 
             plots the physical graph highlighting the mapping, with labels indicating the resource capabilities (a_i and a_ij)
             For now, I restricted to 1 color, maybe I'll implement a gradient or rainbow colors to better visualize the mapping
             Saves the plot as  ./plots/physical_graph.svg
         """
-        assert self.optimized_flag, "The model must be optimized in order to generate the graph"
+        assert self.optimized_flag, "The model must have been optimized in order to generate the graph"
+        plots_dir = Path(__file__).resolve().parent / "plots"
+        plots_dir.mkdir(parents=True, exist_ok=True)
         g = graphviz.Digraph(
-            "physical_graph",               # name of the graph
-            filename="physical_graph",      # name of the file
+            graph_name,                     # name of the graph
+            filename=graph_name,            # name of the file
             engine='neato',                 # layout engine (neato produces )
             format='pdf',                   # output format
             #rankdir='LR',                  # direction of the graph (LR = left to right), but this parameternot supported by neato
         )
+        
         g.attr(overlap='false')
         g.attr(sep='+0')
         for i, j in self.physical_links:
@@ -256,7 +296,7 @@ class NetworkMapping:
 
         g.node(self.physical_nodes[0], color='blue', fontcolor='blue')
         g.node(self.physical_nodes[-1], color='blue', fontcolor='blue')
-        g.render(directory='./plots', cleanup=True)
+        g.render(directory=str(plots_dir), cleanup=True)
 
 
 if __name__ == "__main__":
@@ -265,4 +305,3 @@ if __name__ == "__main__":
     network_mapping.compute_model()
     network_mapping.optimize()
     print("Physical Links:", network_mapping.physical_links)
-    network_mapping.plot_graph()
