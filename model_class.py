@@ -9,7 +9,7 @@
 
     TODO : add the time dimension now... looks like a big part of the problem though
 
-    Created in June 16th, 2026 by Enzo Henry
+    Created on June 16th, 2026 by Enzo Henry
 """
 
 """ ABOUT THIS BRANCH : myopic model 
@@ -96,11 +96,16 @@ class NetworkMapping:
         self.memory_requirements    = model["memory_requirements"]          # dict as well
         self.bandwidth_requirement  = model["bandwidth_requirements"]       # meant to be a simple list
 
-        self.energy_price           = model["energy_price"]
+        self.energy_price           = model["energy_price"]                 # dict i1: [price_t1, price_t2, ..., price_tn] 
         self.CPU_usage_price        = model["CPU_usage_price"]
         self.memory_usage_price     = model["memory_usage_price"]
         self.bandwidth_usage_price  = model["bandwidth_usage_price"]
         self.node_disposal_price    = model["node_disposal_price"]
+
+        # time aspects for the greedy model
+        self.k = 0
+        self.cost = []
+        self.overall_cost = 0
 
     def vertices_P(self):
         """ returns the vertices of the graph """
@@ -195,9 +200,10 @@ class NetworkMapping:
             self.gpmodel.addConstr(self.phi_node[v, 0] == 0)
             self.gpmodel.addConstr(self.phi_node[v, len(self.physical_nodes)-1] == 0)
 
-    def energy_cost(self):
+    def energy_cost(self): 
+        # depends on k 
         self.Ce = gp.quicksum(
-            self.energy_price[self.physical_nodes[i]] * gp.quicksum(
+            self.energy_price[self.physical_nodes[i]][self.k] * gp.quicksum(
                 self.phi_node[v, i] for v in range(len(self.sfc))
             ) for i in range(len(self.physical_nodes))
         )
@@ -263,6 +269,16 @@ class NetworkMapping:
         self.generate_access_nodes_constraints()
         self.objective_function()
 
+    def update_model(self):
+        """
+            Updates the model for the next time slot k+1 by updating the energy price of the physical nodes. \n
+            This method allows us to only update what changes temporally, without having to recompute the whole model from scratch. \n
+            Basically only the energy price changes in this myopic model
+        """
+        self.k += 1
+        self.objective_function()
+
+
     def optimize(self):
         """
             Optimizes the model and prints the results. \n
@@ -278,7 +294,7 @@ class NetworkMapping:
                     print(f"{v.VarName} {v.X:g}")
                 print(f"Obj: {self.gpmodel.ObjVal:g}")
                 self.optimized_flag = 1
-                self.plot_graph()
+                # self.plot_graph()
             elif self.gpmodel.Status == GRB.INFEASIBLE:
                 print("Model is infeasible")
             else:
@@ -288,6 +304,26 @@ class NetworkMapping:
             print(f"Error code {e.errno}: {e}")
         except AttributeError:
             print("Encountered an attribute error")
+
+    def run(self):
+        """
+            Runs the model by computing it and optimizing it for each time slot k.
+        """
+        # first iteration (k=0)
+        self.compute_model()
+        self.optimize()
+        self.plot_graph(graph_name=f"physical_graph_k{self.k}")
+        self.cost.append(self.gpmodel.ObjVal)
+        self.overall_cost += self.gpmodel.ObjVal
+        for k in range(1, len(self.energy_price[self.physical_nodes[0]])):
+            self.update_model()
+            self.optimize()
+            self.plot_graph(graph_name=f"physical_graph_k{self.k}")
+            self.cost.append(self.gpmodel.ObjVal)
+            self.overall_cost += self.gpmodel.ObjVal
+        print(f"Cost for each time slot k: {self.cost}")
+        print(f"Overall cost for the whole time horizon: {self.overall_cost}")
+
     
     def plot_graph(self, graph_name="physical_graph"):
         """ 
@@ -324,20 +360,20 @@ class NetworkMapping:
 
             node_i_compute = f" \n c: {sum(self.phi_node.X[index_v, self.physical_nodes_index[i]] * self.computing_requirements[v] for index_v, v in enumerate(self.sfc))}/{self.computing_availability[i]}"
             node_i_memory = f" \n m: {sum(self.phi_node.X[index_v, self.physical_nodes_index[i]] * self.memory_requirements[v] for index_v, v in enumerate(self.sfc))}/{self.memory_availability[i]}"
-            node_i_energy_price = f" \n e: {self.energy_price[i]}"
+            node_i_energy_price = f" \n e: {self.energy_price[i][self.k]}"
             node_i_label = f"{i} ({i_used})" + node_i_compute + node_i_memory + node_i_energy_price
             
             node_j_compute = f" \n c: {sum(self.phi_node.X[index_v, self.physical_nodes_index[j]] * self.computing_requirements[v] for index_v, v in enumerate(self.sfc))}/{self.computing_availability[j]}"
             node_j_memory = f" \n m: {sum(self.phi_node.X[index_v, self.physical_nodes_index[j]] * self.memory_requirements[v] for index_v, v in enumerate(self.sfc))}/{self.memory_availability[j]}"
-            node_j_energy_price = f" \n e: {self.energy_price[j]}"
+            node_j_energy_price = f" \n e: {self.energy_price[j][self.k]}"
             node_j_label = f"{j} ({j_used})" + node_j_compute + node_j_memory + node_j_energy_price
 
             if len(ij_used) > 0:
                 g.edge(i, j, label=link_label, fontsize='10', color='red', fontcolor='red')
             else:
                 g.edge(i, j, label=str(self.bandwidth_availability[self.physical_link_index[(i, j)]]), fontsize='10')
-                g.node(i, label=f"{i} \n e: {self.energy_price[i]}", fontsize='10')
-                g.node(j, label=f"{j} \n e: {self.energy_price[j]}", fontsize='10')
+                g.node(i, label=f"{i} \n e: {self.energy_price[i][self.k]}", fontsize='10')
+                g.node(j, label=f"{j} \n e: {self.energy_price[j][self.k]}", fontsize='10')
             if len(i_used) > 0:
                 g.node(i, label=node_i_label, fontsize='10', color='red', fontcolor='red')
             if len(j_used) > 0:
@@ -346,12 +382,12 @@ class NetworkMapping:
 
         g.node(self.physical_nodes[0], color='blue', fontcolor='blue')
         g.node(self.physical_nodes[-1], color='blue', fontcolor='blue')
+        g.attr(label=f"k={self.k}", labelloc="t", labeljust="l", fontsize="14", fontcolor="black")
         g.render(directory=str(plots_dir), cleanup=True)
 
 
 if __name__ == "__main__":
     model = json_parser("model2")
     network_mapping = NetworkMapping(model)
-    network_mapping.compute_model()
-    network_mapping.optimize()
+    network_mapping.run()
     print("Physical Links:", network_mapping.physical_links)
