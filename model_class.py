@@ -295,14 +295,22 @@ class NetworkMapping:
 
             link_label = f"{self.phi_link.X[:, self.physical_link_index[(i, j)]] @ self.bandwidth_requirement[:]}/{self.bandwidth_availability[self.physical_link_index[(i, j)]]}"
 
-            node_i_label = f"{i} ({i_used}) \n c: {sum(self.phi_node.X[index_v, self.physical_nodes_index[i]] * self.computing_requirements[v] for index_v, v in enumerate(self.sfc))}/{self.computing_availability[i]} \n m: {sum(self.phi_node.X[index_v, self.physical_nodes_index[i]] * self.memory_requirements[v] for index_v, v in enumerate(self.sfc))}/{self.memory_availability[i]}"
+            node_i_compute = f" \n c: {sum(self.phi_node.X[index_v, self.physical_nodes_index[i]] * self.computing_requirements[v] for index_v, v in enumerate(self.sfc))}/{self.computing_availability[i]}"
+            node_i_memory = f" \n m: {sum(self.phi_node.X[index_v, self.physical_nodes_index[i]] * self.memory_requirements[v] for index_v, v in enumerate(self.sfc))}/{self.memory_availability[i]}"
+            node_i_energy_price = f" \n e: {self.energy_price[i]}"
+            node_i_label = f"{i} ({i_used})" + node_i_compute + node_i_memory + node_i_energy_price
             
-            node_j_label = f"{j} ({j_used}) \n c: {sum(self.phi_node.X[index_v, self.physical_nodes_index[j]] * self.computing_requirements[v] for index_v, v in enumerate(self.sfc))}/{self.computing_availability[j]} \n m: {sum(self.phi_node.X[index_v, self.physical_nodes_index[j]] * self.memory_requirements[v] for index_v, v in enumerate(self.sfc))}/{self.memory_availability[j]}"
-    
+            node_j_compute = f" \n c: {sum(self.phi_node.X[index_v, self.physical_nodes_index[j]] * self.computing_requirements[v] for index_v, v in enumerate(self.sfc))}/{self.computing_availability[j]}"
+            node_j_memory = f" \n m: {sum(self.phi_node.X[index_v, self.physical_nodes_index[j]] * self.memory_requirements[v] for index_v, v in enumerate(self.sfc))}/{self.memory_availability[j]}"
+            node_j_energy_price = f" \n e: {self.energy_price[j]}"
+            node_j_label = f"{j} ({j_used})" + node_j_compute + node_j_memory + node_j_energy_price
+
             if len(ij_used) > 0:
                 g.edge(i, j, label=link_label, fontsize='10', color='red', fontcolor='red')
             else:
                 g.edge(i, j, label=str(self.bandwidth_availability[self.physical_link_index[(i, j)]]), fontsize='10')
+                g.node(i, label=f"{i} \n e: {self.energy_price[i]}", fontsize='10')
+                g.node(j, label=f"{j} \n e: {self.energy_price[j]}", fontsize='10')
             if len(i_used) > 0:
                 g.node(i, label=node_i_label, fontsize='10', color='red', fontcolor='red')
             if len(j_used) > 0:
