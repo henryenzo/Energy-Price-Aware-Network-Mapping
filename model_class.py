@@ -12,6 +12,11 @@
     Created in June 16th, 2026 by Enzo Henry
 """
 
+""" ABOUT THIS BRANCH : myopic model 
+    This is baseline 2 : we consider a time-variying energy price, but we don't consider the migration cost yet. We have W=S=1 so we don't anticipate, we just optimize the mapping at each time step. The model is still a MIP, but we have to solve it at each time step, which is not optimal but it's a first step. We will see later how to add the migration cost and the anticipation of the future energy price (that will be baseline 3).
+    I may call this approach "greedy" as well in the comments but as I've seen in the literature, greedy is more about the algorithm than the model itself, and the correct term is "myopic" ^^
+"""
+
 import gurobipy as gp
 from gurobipy import GRB
 import numpy as np
