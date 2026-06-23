@@ -226,9 +226,22 @@ class NetworkMapping:
             for i in range(len(self.vertices_P()))
         )
         return self.Cr
+    
+    def link_usage_cost(self):
+        """
+            I'm not sure about this one yet, I don't know if it needs to be taken into account in the objective function or not, but anyway it will force the model to take the shortest path for the logical links, which is a good thing I guess.
+            We shall take a fix cost of 0.1 for each link used
+        """
+        self.Cl = gp.quicksum(
+            0.1 * self.phi_link[v_link, self.physical_link_index[(ij[0], ij[1])]]
+            for v_link in range(len(self.logical_links))
+            for ij in self.physical_links
+        )
+        return self.Cl
+            
 
     def objective_function(self):
-        self.gpmodel.setObjective(self.energy_cost() + self.usage_cost() + self.disposal_cost(), GRB.MINIMIZE)
+        self.gpmodel.setObjective(self.energy_cost() + self.usage_cost() + self.disposal_cost() + self.link_usage_cost(), GRB.MINIMIZE)
 
     def compute_model(self):
         self.generate_mapping_variables()
@@ -302,7 +315,7 @@ class NetworkMapping:
 
 
 if __name__ == "__main__":
-    model = json_parser("model2")
+    model = json_parser("model3")
     network_mapping = NetworkMapping(model)
     network_mapping.compute_model()
     network_mapping.optimize()
