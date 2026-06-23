@@ -22,10 +22,14 @@ from pathlib import Path
 
 def json_parser(model_name: str, file_name = "test_models.json") -> dict:
     """
-        json_parser returns a dict containing every paramters for the model (physGraph, sfc, availability, requirements etc)
-        Arguments:  model_name      "model1" for example
-                    file_name       not needed here
+        Helper function to parse the json file containing the test models and return the parameters of the model as a dict.\n
+        Arguments:  
+        - model_name: str, the name of the model to parse \n
+        - file_name:  str, the name of the json file containing the test models (default: "test_models.json" is the one I used for tests) \n
+
+        Returns: dict containing every paramters for the model (physGraph, sfc, availability, requirements etc)
     """
+
     with open(file_name, 'r') as file:
         test_models = json.load(file)["test_models"]
     #print(test_models["test_models"])
@@ -35,34 +39,11 @@ def json_parser(model_name: str, file_name = "test_models.json") -> dict:
     raise ValueError(f"Model '{model_name}' does not exist")
 
 
-
-# Once our program runs correctly, we can start to implement the classes that will represent our model. We will create a class for the physical servers, a class for the VNFs, and a class for the physical links. We will also create a class for the logical links that will connect the VNFs. Finally, we will create a class for the network mapping that will contain all of the other classes. 
-# after all, maybe we don't need this at all. Everything we need is already in the json file and we can just use the dict to access the parameters. But maybe a function that generates the model from a more usable format would be useful. We'll see
-class Server:
-    def __init__(self, name, memory=0, CPU=0):
-        self.name = name
-        self.memory = memory
-        self.CPU = CPU
-        self.vnfs = []  # List of VNFs hosted on the server
-class VNF:
-    def __init__(self, name, memory=0, CPU=0):
-        self.name = name
-        self.memory = memory
-        self.CPU = CPU
-class PhysLink:
-    def __init__(self, server1: Server, server2: Server, bandwidth=0):
-        self.server1 = server1
-        self.server2 = server2
-        self.bandwidth = bandwidth
-class LogicalLink:
-    def __init__(self, vnf1: VNF, vnf2: VNF, bandwidth=0):
-        self.vnf1 = vnf1
-        self.vnf2 = vnf2
-        self.bandwidth = bandwidth
-
-
 class NetworkMapping:
     def __init__(self):
+        """
+            Deprecated constructor of the class, I only keep it to remind of the structure of the model, but using it will cause the model to lack a lot of attributes and parameters, and will not be able to optimize the model. 
+        """
         self.gpmodel = gp.Model("mip1")
         self.physGraph = {"i1": ["i2", "i3"], "i2": ["i1", "i4"], "i3": ["i1", "i4"], "i4": ["i2", "i3"]}
         self.physical_nodes = list(self.physGraph.keys())
@@ -80,7 +61,18 @@ class NetworkMapping:
         self.energy_price           = {"i1": 1, "i2": 2, "i3": 3, "i4": 1}
         self.computing_requirements = {"v1": 2, "v2": 2, "v3": 2}
 
+        raise Exception("Deprecated constructor of the class, use the other one with a dict as input instead")
+
     def __init__(self, model: dict):
+        """
+            Constructor of the class, takes a dict as input containing the model parameters (physGraph, sfc, availability, requirements etc) and initializes the class attributes accordingly. \n
+            The model dict is expected to be imported from the json file using the `json_parser` function. \n
+            For example:
+            ```
+            model = json_parser("model1")
+            network_mapping = NetworkMapping(model)
+            ``` \n
+        """
         self.gpmodel = gp.Model("mip1")
         self.optimized_flag = 0
         self.physGraph = model["physGraph"]
@@ -107,7 +99,7 @@ class NetworkMapping:
 
     def vertices_P(self):
         """ returns the vertices of the graph """
-        return list(self.physGraph.keys())
+        return self.physical_nodes
     
     def edges_P(self):
         """ returns the edges of the graph """
@@ -126,22 +118,22 @@ class NetworkMapping:
     def generate_mapping_variables(self):
         """ generates the mapping variables for the VNFs to physical servers and for the logical links to physical links """
         # Numpy array of binary variables for the mapping of VNFs to physical servers (the only ones we need for now)
-        self.phi_node = self.gpmodel.addMVar((len(self.sfc), len(self.vertices_P())), vtype=GRB.BINARY, name="phi_nodes")
+        self.phi_node = self.gpmodel.addMVar((len(self.sfc), len(self.physical_nodes)), vtype=GRB.BINARY, name="phi_nodes")
         self.phi_link = self.gpmodel.addMVar((len(self.sfc)-1, len(self.edges_P())), vtype=GRB.BINARY, name="phi_link")
         # node activation variables, sigma_i = 1 if at least one VNF is mapped to node i, 0 otherwise
-        self.sigma = self.gpmodel.addMVar((len(self.vertices_P()),), vtype=GRB.BINARY, name="sigma")
+        self.sigma = self.gpmodel.addMVar((len(self.physical_nodes),), vtype=GRB.BINARY, name="sigma")
         # migration variables, xi_v,i = 1 if VNF v is migrated to node i, 0 otherwise
-        #self.xi = self.gpmodel.addMVar((len(self.sfc), len(self.vertices_P())), vtype=GRB.BINARY, name="xi")
+        #self.xi = self.gpmodel.addMVar((len(self.sfc), len(self.physical_nodes)), vtype=GRB.BINARY, name="xi")
 
     def generate_mapping_constraints(self):
         """ generates the mapping constraints on phi_node and phi_link """
         # Each VNF must be mapped to exactly one physical server
         for v in range(len(self.sfc)):
             self.gpmodel.addConstr(
-                gp.quicksum(self.phi_node[v, i] for i in range(len(self.vertices_P()))) == 1
+                gp.quicksum(self.phi_node[v, i] for i in range(len(self.physical_nodes))) == 1
             )
         # Flow conservation constraints for the logical links 
-        for i_index, i in enumerate(self.vertices_P()):
+        for i_index, i in enumerate(self.physical_nodes):
             for vlink in range(len(self.logical_links)):
                 self.gpmodel.addConstr(
                     gp.quicksum(
@@ -156,7 +148,7 @@ class NetworkMapping:
     def generate_node_activation_constraints(self):
         # sigma_i = 1 if at least one VNF is mapped to node i, 0 otherwise
         # addGenConstrOr is a Gurobi function that takes the logical OR of a list of binary variables, here all the mapped VNFs to node i
-        for i_index in range(len(self.vertices_P())):
+        for i_index in range(len(self.physical_nodes)):
             self.gpmodel.addGenConstrOr(        
                 self.sigma[i_index],
                 [self.phi_node[v, i_index] for v in range(len(self.sfc))]
@@ -164,20 +156,20 @@ class NetworkMapping:
 
     def generate_availability_constraints(self):
         # Availability constraints for the physical servers only, access nodes excluded in the range
-        for i_index in range(1, len(self.vertices_P())-1):
+        for i_index in range(1, len(self.physical_nodes)-1):
             # In terms of computing resource
             self.gpmodel.addConstr(
                 gp.quicksum(
                     self.phi_node[v_index, i_index] * self.computing_requirements[v] 
                         for v_index, v in enumerate(self.sfc)
-                ) <=  self.computing_availability[self.vertices_P()[i_index]]
+                ) <=  self.computing_availability[self.physical_nodes[i_index]]
             )
             # In terms of memory resource
             self.gpmodel.addConstr(
                 gp.quicksum(
                     self.phi_node[v_index, i_index] * self.memory_requirements[v] 
                         for v_index, v in enumerate(self.sfc)
-                ) <=  self.memory_availability[self.vertices_P()[i_index]]
+                ) <=  self.memory_availability[self.physical_nodes[i_index]]
             )
 
         # And in terms of bandwidth usage
@@ -192,45 +184,46 @@ class NetworkMapping:
     def generate_access_nodes_constraints(self):
         # First VNF must be mapped to the access node i1 and the last VNF must be mapped to the access node i4 (or whatever the last node is)
         self.gpmodel.addConstr(self.phi_node[0, 0] == 1)
-        self.gpmodel.addConstr(self.phi_node[len(self.sfc)-1, len(self.vertices_P())-1] == 1)
+        self.gpmodel.addConstr(self.phi_node[len(self.sfc)-1, len(self.physical_nodes)-1] == 1)
         # and only those two VNFs can be mapped to the access nodes
         for v in range(1, len(self.sfc)-1):
             self.gpmodel.addConstr(self.phi_node[v, 0] == 0)
-            self.gpmodel.addConstr(self.phi_node[v, len(self.vertices_P())-1] == 0)
+            self.gpmodel.addConstr(self.phi_node[v, len(self.physical_nodes)-1] == 0)
 
     def energy_cost(self):
         self.Ce = gp.quicksum(
-            self.energy_price[self.vertices_P()[i]] * gp.quicksum(
+            self.energy_price[self.physical_nodes[i]] * gp.quicksum(
                 self.phi_node[v, i] for v in range(len(self.sfc))
-            ) for i in range(len(self.vertices_P()))
+            ) for i in range(len(self.physical_nodes))
         )
         return self.Ce
     
     def disposal_cost(self):
         self.Cf = gp.quicksum(
-            self.node_disposal_price[self.vertices_P()[i]] * self.sigma[i] for i in range(len(self.vertices_P()))
+            self.node_disposal_price[self.physical_nodes[i]] * self.sigma[i] for i in range(len(self.physical_nodes))
         )
         return self.Cf
     
     def usage_cost(self):
         self.Cr = gp.quicksum(
             gp.quicksum(
-                self.CPU_usage_price[self.vertices_P()[i]] * self.phi_node[v, i] * self.computing_requirements[self.sfc[v]] for v in range(len(self.sfc))
+                self.CPU_usage_price[self.physical_nodes[i]] * self.phi_node[v, i] * self.computing_requirements[self.sfc[v]] for v in range(len(self.sfc))
             ) 
             + gp.quicksum(
-                self.memory_usage_price[self.vertices_P()[i]] * self.phi_node[v, i] * self.memory_requirements[self.sfc[v]] for v in range(len(self.sfc))
+                self.memory_usage_price[self.physical_nodes[i]] * self.phi_node[v, i] * self.memory_requirements[self.sfc[v]] for v in range(len(self.sfc))
             ) 
             + gp.quicksum(
-                self.bandwidth_usage_price[self.vertices_P()[i]][self.vertices_P()[j]] * self.phi_link[v_link, self.physical_link_index[(self.vertices_P()[i], self.vertices_P()[j])]] * self.bandwidth_requirement[v_link] for v_link in range(len(self.logical_links)) for j in range(len(self.vertices_P())) if (self.vertices_P()[i], self.vertices_P()[j]) in self.physical_links
+                self.bandwidth_usage_price[self.physical_nodes[i]][self.physical_nodes[j]] * self.phi_link[v_link, self.physical_link_index[(self.physical_nodes[i], self.physical_nodes[j])]] * self.bandwidth_requirement[v_link] for v_link in range(len(self.logical_links)) for j in range(len(self.physical_nodes)) if (self.physical_nodes[i], self.physical_nodes[j]) in self.physical_links
             )
-            for i in range(len(self.vertices_P()))
+            for i in range(len(self.physical_nodes))
         )
         return self.Cr
     
     def link_usage_cost(self):
         """
-            I'm not sure about this one yet, I don't know if it needs to be taken into account in the objective function or not, but anyway it will force the model to take the shortest path for the logical links, which is a good thing I guess.
-            We shall take a fix cost of 0.1 for each link used
+            I'm not sure about this one yet, I don't know if it needs to be taken into account in the objective function or not.\n
+            Anyway it will force the model to take the shortest path for the logical links, which is a good thing I guess.\n
+            We take a fix cost of 0.1 for each link used
         """
         self.Cl = gp.quicksum(
             0.1 * self.phi_link[v_link, self.physical_link_index[(ij[0], ij[1])]]
@@ -241,39 +234,68 @@ class NetworkMapping:
             
 
     def objective_function(self):
+        """
+            Objective function of the problem : $E_{InP} = C_e + C_r + C_f + C_l$
+
+            where:
+            - C_e is the energy cost (variable cost), \n
+            - C_r is the resource usage cost (variable cost), \n
+            - C_f is the disposal cost (fix cost), \n
+            - C_l is the link usage cost (this one doesn't appear in my paper, it is to make the model choose the shortest paths). \n
+            The objective function is to **minimize** the total cost $E_{InP}$.
+        """
         self.gpmodel.setObjective(self.energy_cost() + self.usage_cost() + self.disposal_cost() + self.link_usage_cost(), GRB.MINIMIZE)
 
     def compute_model(self):
+        """
+            Computes the model by generating the mapping variables, the mapping constraints, the availability constraints, the access nodes constraints and the objective function. \n
+            This method must be called before `self.optimize()` in order to compute the model and optimize it. 
+        """
         self.generate_mapping_variables()
         self.generate_mapping_constraints()
+        self.generate_node_activation_constraints()
         self.generate_availability_constraints()
         self.generate_access_nodes_constraints()
         self.objective_function()
 
     def optimize(self):
-            try:
-                self.gpmodel.optimize()
-                if self.gpmodel.Status == GRB.OPTIMAL:
-                    for v in self.gpmodel.getVars():
-                        print(f"{v.VarName} {v.X:g}")
-                    print(f"Obj: {self.gpmodel.ObjVal:g}")
-                    self.optimized_flag = 1
-                    self.plot_graph()
-                elif self.gpmodel.Status == GRB.INFEASIBLE:
-                    print("Model is infeasible")
-                else:
-                    print(f"Optimization finished with status {self.gpmodel.Status}")
+        """
+            Optimizes the model and prints the results. \n
+            Requires the model to have been computed with `self.compute_model()` first.\n
+            If the model is optimal, it will also plot the physical graph (see `self.plot_graph()`),\n
+            if it's not, will print the status of the optimization and the reason why it failed (infeasible, unbounded, etc.)\n
+            Exceptions are handled but not extensively
+        """
+        try:
+            self.gpmodel.optimize()
+            if self.gpmodel.Status == GRB.OPTIMAL:
+                for v in self.gpmodel.getVars():
+                    print(f"{v.VarName} {v.X:g}")
+                print(f"Obj: {self.gpmodel.ObjVal:g}")
+                self.optimized_flag = 1
+                self.plot_graph()
+            elif self.gpmodel.Status == GRB.INFEASIBLE:
+                print("Model is infeasible")
+            else:
+                print(f"Optimization finished with status {self.gpmodel.Status}")
 
-            except gp.GurobiError as e:
-                print(f"Error code {e.errno}: {e}")
-            except AttributeError:
-                print("Encountered an attribute error")
+        except gp.GurobiError as e:
+            print(f"Error code {e.errno}: {e}")
+        except AttributeError:
+            print("Encountered an attribute error")
     
     def plot_graph(self, graph_name="physical_graph"):
         """ 
-            plots the physical graph highlighting the mapping, with labels indicating the resource capabilities (a_i and a_ij)
-            For now, I restricted to 1 color, maybe I'll implement a gradient or rainbow colors to better visualize the mapping
-            Saves the plot as  ./plots/physical_graph.svg
+            Plots the physical graph highlighting the mapping, energy price and resource utilization.\n
+            This method uses the *neato* layout engine of `graphviz` python library, for easier visualization of the graph. \n
+            The nodes are colored in red if they are servers hosting at least one VNF, and in blue if they are access nodes. Label: 
+            - c : computing resource usage / availability (on red and blue nodes only)
+            - m : memory resource usage / availability (on red and blue nodes only)
+            - e : energy price (on all nodes) \n
+            The edges are colored in red if they are used to map at least one logical link, and indicate their bandwidth usage / availability. \n
+            Saves the plot as  `./plots/physical_graph.pdf`\n
+
+            Argument : graph_name (str) : name of the graph and the file to save, default is "physical_graph"
         """
         assert self.optimized_flag, "The model must have been optimized in order to generate the graph"
         plots_dir = Path(__file__).resolve().parent / "plots"
@@ -282,7 +304,7 @@ class NetworkMapping:
             graph_name,                     # name of the graph
             filename=graph_name,            # name of the file
             engine='neato',                 # layout engine (neato produces )
-            format='pdf',                   # output format
+            format='svg',                   # output format
             #rankdir='LR',                  # direction of the graph (LR = left to right), but this parameternot supported by neato
         )
         
@@ -323,7 +345,7 @@ class NetworkMapping:
 
 
 if __name__ == "__main__":
-    model = json_parser("model3")
+    model = json_parser("model2")
     network_mapping = NetworkMapping(model)
     network_mapping.compute_model()
     network_mapping.optimize()
