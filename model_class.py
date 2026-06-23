@@ -285,14 +285,16 @@ class NetworkMapping:
             node_i_label = f"{i} ({i_used}) \n c: {sum(self.phi_node.X[index_v, self.physical_nodes_index[i]] * self.computing_requirements[v] for index_v, v in enumerate(self.sfc))}/{self.computing_availability[i]} \n m: {sum(self.phi_node.X[index_v, self.physical_nodes_index[i]] * self.memory_requirements[v] for index_v, v in enumerate(self.sfc))}/{self.memory_availability[i]}"
             
             node_j_label = f"{j} ({j_used}) \n c: {sum(self.phi_node.X[index_v, self.physical_nodes_index[j]] * self.computing_requirements[v] for index_v, v in enumerate(self.sfc))}/{self.computing_availability[j]} \n m: {sum(self.phi_node.X[index_v, self.physical_nodes_index[j]] * self.memory_requirements[v] for index_v, v in enumerate(self.sfc))}/{self.memory_availability[j]}"
+    
             if len(ij_used) > 0:
                 g.edge(i, j, label=link_label, fontsize='10', color='red', fontcolor='red')
+            else:
+                g.edge(i, j, label=str(self.bandwidth_availability[self.physical_link_index[(i, j)]]), fontsize='10')
             if len(i_used) > 0:
                 g.node(i, label=node_i_label, fontsize='10', color='red', fontcolor='red')
             if len(j_used) > 0:
                 g.node(j, label=node_j_label, fontsize='10', color='red', fontcolor='red')
-            else:
-                g.edge(i, j, label=str(self.bandwidth_availability[self.physical_link_index[(i, j)]]), fontsize='10')
+                
 
         g.node(self.physical_nodes[0], color='blue', fontcolor='blue')
         g.node(self.physical_nodes[-1], color='blue', fontcolor='blue')

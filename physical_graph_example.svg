@@ -30,13 +30,6 @@
 <polygon fill="red" stroke="red" points="140.6,-405.8 150.1,-410.47 145.59,-400.89 140.6,-405.8"/>
 <text xml:space="preserve" text-anchor="middle" x="88.53" y="-353.68" font-family="Times,serif" font-size="10.00" fill="red">2.0/5</text>
 </g>
-<!-- i1&#45;&gt;i2 -->
-<g id="edge2" class="edge">
-<title>i1&#45;&gt;i2</title>
-<path fill="none" stroke="black" d="M64.12,-295.43C90.48,-322.86 130.43,-369.49 152.63,-398.8"/>
-<polygon fill="black" stroke="black" points="149.78,-400.84 158.54,-406.81 155.42,-396.68 149.78,-400.84"/>
-<text xml:space="preserve" text-anchor="middle" x="105.75" y="-348.87" font-family="Times,serif" font-size="10.00">5</text>
-</g>
 <!-- i3 -->
 <g id="node3" class="node">
 <title>i3</title>
@@ -44,11 +37,18 @@
 <text xml:space="preserve" text-anchor="middle" x="183.91" y="-136.3" font-family="Times,serif" font-size="14.00">i3</text>
 </g>
 <!-- i1&#45;&gt;i3 -->
-<g id="edge3" class="edge">
+<g id="edge2" class="edge">
 <title>i1&#45;&gt;i3</title>
-<path fill="none" stroke="black" d="M63.38,-250.71C90.25,-226.32 132.68,-187.83 159.37,-163.62"/>
-<polygon fill="black" stroke="black" points="161.59,-166.32 166.65,-157.01 156.89,-161.14 161.59,-166.32"/>
-<text xml:space="preserve" text-anchor="middle" x="108.75" y="-208.91" font-family="Times,serif" font-size="10.00">5</text>
+<path fill="none" stroke="black" d="M67.6,-254.02C96.38,-230.63 139.39,-191.52 164.3,-166.01"/>
+<polygon fill="black" stroke="black" points="166.6,-168.67 170.96,-159.02 161.53,-163.84 166.6,-168.67"/>
+<text xml:space="preserve" text-anchor="middle" x="113.33" y="-211.77" font-family="Times,serif" font-size="10.00">5</text>
+</g>
+<!-- i2&#45;&gt;i1 -->
+<g id="edge3" class="edge">
+<title>i2&#45;&gt;i1</title>
+<path fill="none" stroke="black" d="M159.37,-407.94C141.28,-382.59 101.28,-335.2 72.15,-303.93"/>
+<polygon fill="black" stroke="black" points="74.7,-301.53 65.29,-296.67 69.61,-306.34 74.7,-301.53"/>
+<text xml:space="preserve" text-anchor="middle" x="113.14" y="-357.68" font-family="Times,serif" font-size="10.00">5</text>
 </g>
 <!-- i4 -->
 <g id="node4" class="node">
@@ -65,6 +65,20 @@
 <polygon fill="red" stroke="red" points="289.6,-336.35 294.6,-327.01 284.87,-331.19 289.6,-336.35"/>
 <text xml:space="preserve" text-anchor="middle" x="228.11" y="-375.33" font-family="Times,serif" font-size="10.00" fill="red">2.0/5</text>
 </g>
+<!-- i3&#45;&gt;i1 -->
+<g id="edge5" class="edge">
+<title>i3&#45;&gt;i1</title>
+<path fill="none" stroke="black" d="M163.58,-153.65C138.2,-173.32 94.88,-212.12 66.38,-240.29"/>
+<polygon fill="black" stroke="black" points="64.06,-237.67 59.48,-247.22 69.02,-242.61 64.06,-237.67"/>
+<text xml:space="preserve" text-anchor="middle" x="112.36" y="-198.72" font-family="Times,serif" font-size="10.00">5</text>
+</g>
+<!-- i3&#45;&gt;i4 -->
+<g id="edge6" class="edge">
+<title>i3&#45;&gt;i4</title>
+<path fill="none" stroke="black" d="M193.27,-158.62C211.67,-184.44 252.75,-233.34 283.05,-266.22"/>
+<polygon fill="black" stroke="black" points="280.48,-268.59 289.86,-273.51 285.6,-263.81 280.48,-268.59"/>
+<text xml:space="preserve" text-anchor="middle" x="235.54" y="-214.17" font-family="Times,serif" font-size="10.00">5</text>
+</g>
 <!-- i5 -->
 <g id="node5" class="node">
 <title>i5</title>
@@ -72,25 +86,25 @@
 <text xml:space="preserve" text-anchor="middle" x="336.91" y="-12.95" font-family="Times,serif" font-size="14.00">i5</text>
 </g>
 <!-- i3&#45;&gt;i5 -->
-<g id="edge5" class="edge">
+<g id="edge7" class="edge">
 <title>i3&#45;&gt;i5</title>
 <path fill="none" stroke="black" d="M205.24,-130.04C234.45,-109.96 286.38,-68.32 315.58,-41.76"/>
 <polygon fill="black" stroke="black" points="317.83,-44.45 322.76,-35.07 313.06,-39.33 317.83,-44.45"/>
 <text xml:space="preserve" text-anchor="middle" x="257.79" y="-87.65" font-family="Times,serif" font-size="10.00">5</text>
 </g>
 <!-- i4&#45;&gt;i2 -->
-<g id="edge6" class="edge">
+<g id="edge8" class="edge">
 <title>i4&#45;&gt;i2</title>
 <path fill="none" stroke="black" d="M284.4,-321.24C255.1,-343.52 214.23,-377.88 189.68,-401.01"/>
 <polygon fill="black" stroke="black" points="187.28,-398.46 182.51,-407.93 192.14,-403.5 187.28,-398.46"/>
 <text xml:space="preserve" text-anchor="middle" x="234.41" y="-362.87" font-family="Times,serif" font-size="10.00">5</text>
 </g>
 <!-- i4&#45;&gt;i3 -->
-<g id="edge7" class="edge">
+<g id="edge9" class="edge">
 <title>i4&#45;&gt;i3</title>
-<path fill="none" stroke="black" d="M296.22,-272.65C270.65,-242.76 229.65,-194.83 204.9,-165.89"/>
-<polygon fill="black" stroke="black" points="207.62,-163.68 198.46,-158.36 202.3,-168.23 207.62,-163.68"/>
-<text xml:space="preserve" text-anchor="middle" x="247.93" y="-221.02" font-family="Times,serif" font-size="10.00">5</text>
+<path fill="none" stroke="black" d="M301.87,-271.48C278.39,-240.59 236.55,-191.65 209.46,-163.36"/>
+<polygon fill="black" stroke="black" points="212.12,-161.08 202.62,-156.37 207.12,-165.97 212.12,-161.08"/>
+<text xml:space="preserve" text-anchor="middle" x="253.04" y="-219.17" font-family="Times,serif" font-size="10.00">5</text>
 </g>
 <!-- i6 -->
 <g id="node6" class="node">
@@ -101,25 +115,39 @@
 <text xml:space="preserve" text-anchor="middle" x="466.68" y="-155.18" font-family="Times,serif" font-size="10.00" fill="blue"> m: 2.0/5</text>
 </g>
 <!-- i4&#45;&gt;i6 -->
-<g id="edge8" class="edge">
+<g id="edge10" class="edge">
 <title>i4&#45;&gt;i6</title>
-<path fill="none" stroke="red" d="M347.6,-274.57C371.97,-253.23 407.12,-222.45 432.92,-199.86"/>
-<polygon fill="red" stroke="red" points="434.92,-202.76 440.14,-193.54 430.31,-197.49 434.92,-202.76"/>
-<text xml:space="preserve" text-anchor="middle" x="379.76" y="-238.97" font-family="Times,serif" font-size="10.00" fill="red">2.0/5</text>
+<path fill="none" stroke="red" d="M353.04,-277.21C378.62,-256.83 413.29,-226.54 437.62,-203.36"/>
+<polygon fill="red" stroke="red" points="439.92,-206 444.67,-196.53 435.05,-200.97 439.92,-206"/>
+<text xml:space="preserve" text-anchor="middle" x="384.83" y="-242.03" font-family="Times,serif" font-size="10.00" fill="red">2.0/5</text>
 </g>
 <!-- i5&#45;&gt;i3 -->
-<g id="edge9" class="edge">
+<g id="edge11" class="edge">
 <title>i5&#45;&gt;i3</title>
 <path fill="none" stroke="black" d="M315.58,-29.31C286.37,-49.39 234.44,-91.03 205.24,-117.59"/>
 <polygon fill="black" stroke="black" points="202.99,-114.9 198.06,-124.28 207.77,-120.02 202.99,-114.9"/>
 <text xml:space="preserve" text-anchor="middle" x="257.78" y="-75.2" font-family="Times,serif" font-size="10.00">5</text>
 </g>
+<!-- i5&#45;&gt;i6 -->
+<g id="edge12" class="edge">
+<title>i5&#45;&gt;i6</title>
+<path fill="none" stroke="black" d="M346.17,-35.31C364.17,-60.73 403.99,-108.27 433,-139.65"/>
+<polygon fill="black" stroke="black" points="430.44,-142.04 439.84,-146.94 435.55,-137.25 430.44,-142.04"/>
+<text xml:space="preserve" text-anchor="middle" x="386.96" y="-89.23" font-family="Times,serif" font-size="10.00">5</text>
+</g>
+<!-- i6&#45;&gt;i4 -->
+<g id="edge13" class="edge">
+<title>i6&#45;&gt;i4</title>
+<path fill="none" stroke="black" d="M436.8,-189.39C411.54,-209.22 375.58,-240.49 350.04,-264.69"/>
+<polygon fill="black" stroke="black" points="347.69,-262.09 342.9,-271.55 352.54,-267.14 347.69,-262.09"/>
+<text xml:space="preserve" text-anchor="middle" x="390.8" y="-228.79" font-family="Times,serif" font-size="10.00">5</text>
+</g>
 <!-- i6&#45;&gt;i5 -->
-<g id="edge10" class="edge">
+<g id="edge14" class="edge">
 <title>i6&#45;&gt;i5</title>
-<path fill="none" stroke="black" d="M445.54,-145.49C421.3,-117.05 381.82,-70.71 357.72,-42.43"/>
-<polygon fill="black" stroke="black" points="360.61,-40.42 351.46,-35.07 355.28,-44.96 360.61,-40.42"/>
-<text xml:space="preserve" text-anchor="middle" x="399" y="-95.71" font-family="Times,serif" font-size="10.00">5</text>
+<path fill="none" stroke="black" d="M450.25,-143.22C428.01,-113.7 388.42,-67.18 362.35,-39.88"/>
+<polygon fill="black" stroke="black" points="364.94,-37.53 355.45,-32.82 359.93,-42.42 364.94,-37.53"/>
+<text xml:space="preserve" text-anchor="middle" x="403.68" y="-93.3" font-family="Times,serif" font-size="10.00">5</text>
 </g>
 </g>
 </svg>

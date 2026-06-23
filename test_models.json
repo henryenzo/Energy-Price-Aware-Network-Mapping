@@ -49,18 +49,18 @@
         },
         {
             "model_name": "model3", 
-            "description": "1 SFC, 2 real VNFs, 8 physical servers and 2 access nodes",
+            "description": "1 SFC, 4 real VNFs, 8 physical servers and 2 access nodes",
             "model_parameters": {
-                "physGraph": {"i1": ["i2", "i3"], "i2": ["i1", "i4", "i5", "i6"], "i3": ["i1", "i5"], "i4": ["i2", "i7"], "i5": ["i2", "i3", "i7", "i8"], "i6": ["i2", "i9"], "i7": ["i4", "i5", "i8", "i10"], "i8": ["i5", "i7", "9", "10"], "i9": ["i6", "i8", "i10"], "i10": ["i7", "i8", "i9"]},
-                "sfc": ["v1", "v2", "v3", "v4"],
+                "physGraph": {"i1": ["i2", "i3"], "i2": ["i1", "i4", "i5", "i6"], "i3": ["i1", "i5"], "i4": ["i2", "i7"], "i5": ["i2", "i3", "i7", "i8"], "i6": ["i2", "i9"], "i7": ["i4", "i5", "i8", "i10"], "i8": ["i5", "i7", "i9", "i10"], "i9": ["i6", "i8", "i10"], "i10": ["i7", "i8", "i9"]},
+                "sfc": ["v1", "v2", "v3", "v4", "v5", "v6"],
 
                 "computing_availability":       {"i1": 5, "i2": 5, "i3": 5, "i4": 5, "i5": 5, "i6": 5, "i7": 5, "i8": 5, "i9": 5, "i10": 5},
                 "memory_availability":          {"i1": 5, "i2": 5, "i3": 5, "i4": 5, "i5": 5, "i6": 5, "i7": 5, "i8": 5, "i9": 5, "i10": 5},
                 "bandwidth_availability_dict":  {"i1": {"i2": 5, "i3": 5}, "i2": {"i1": 5, "i4": 5, "i5": 5, "i6": 5}, "i3": {"i1": 5, "i5": 5}, "i4": {"i2": 5, "i7": 5}, "i5": {"i2": 5, "i3": 5, "i7": 5, "i8": 5}, "i6": {"i2": 5, "i9": 5}, "i7": {"i4": 5, "i5": 5, "i8": 5, "i10": 5}, "i8": {"i5": 5, "i7": 5, "i9": 5, "i10": 5}, "i9": {"i6": 5, "i8": 5, "i10": 5}, "i10": {"i7": 5, "i8": 5, "i9": 5}},
 
-                "computing_requirements":   {"v1": 2, "v2": 2, "v3": 2, "v4": 2},
-                "memory_requirements":      {"v1": 2, "v2": 2, "v3": 2, "v4": 2},
-                "bandwidth_requirements":   [2, 2, 2],
+                "computing_requirements":   {"v1": 2, "v2": 2, "v3": 2, "v4": 2, "v5": 2, "v6": 2},
+                "memory_requirements":      {"v1": 2, "v2": 2, "v3": 2, "v4": 2, "v5": 2, "v6": 2},
+                "bandwidth_requirements":   [2, 2, 2, 2, 2],
 
                 "energy_price":             {"i1": 1, "i2": 2, "i3": 3, "i4": 1, "i5": 2, "i6": 3, "i7": 1, "i8": 2, "i9": 3, "i10": 1},
                 "CPU_usage_price":          {"i1": 1, "i2": 1, "i3": 1, "i4": 1, "i5": 1, "i6": 1, "i7": 1, "i8": 1, "i9": 1, "i10": 1},
