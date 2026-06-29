@@ -5,7 +5,7 @@
 
     TODO : I have a question relative to the flow conservation constraint. Is it really a sum over each j like in Trung's paper "Accelerating Network Slice Embedding..." or only the neighbours ? I considered only the neighbors here because it doesn't make any sense to map logical links to non-existing physical links, but maybe the variable has a hidden role.
 
-    TODO : indicate which parameter is limitant in case of unsolvable model
+    TODO : fetch data from ENTSO-E transparency platform and add country labels on the physical graph
 
     TODO : add the time dimension now... looks like a big part of the problem though
 
@@ -24,6 +24,7 @@ import scipy.sparse as sp
 import json
 import graphviz
 from pathlib import Path
+from stochastic_engine import get_energy_prices_from_csv
 
 from PIL import Image
 import math
@@ -81,6 +82,7 @@ class NetworkMapping:
             network_mapping = NetworkMapping(model)
             ``` \n
         """
+        self.N = 10
         self.gpmodel = gp.Model("mip1")
         self.optimized_flag = 0
         self.physGraph = model["physGraph"]
@@ -99,14 +101,20 @@ class NetworkMapping:
         self.memory_requirements    = model["memory_requirements"]          # dict as well
         self.bandwidth_requirement  = model["bandwidth_requirements"]       # meant to be a simple list
 
-        self.energy_price           = model["energy_price"]                 # dict i1: [price_t1, price_t2, ..., price_tn] 
+        try:
+            model_country_list = list(set(model["node_country"].values()))
+            self.price_per_country  = get_energy_prices_from_csv(csv_file_name="energy_prices.csv", time_slots=self.N,country_list=model_country_list, stride=4)
+            self.energy_price = {node: list(np.round(np.array(self.price_per_country[country])/100, 2)) for node, country in model["node_country"].items()}
+            # division by 100 because the energy price values are too high compared to usage/disposal cost of nodes
+        except:
+            self.energy_price       = model["energy_price"]                 # dict i1: [price_t1, price_t2, ..., price_tn] 
         self.CPU_usage_price        = model["CPU_usage_price"]
         self.memory_usage_price     = model["memory_usage_price"]
         self.bandwidth_usage_price  = model["bandwidth_usage_price"]
         self.node_disposal_price    = model["node_disposal_price"]
 
         # time aspects for the greedy model
-        self.k = 0
+        self.k = 0      # maximum is self.N - 1
         self.cost = []
         self.overall_cost = 0
 
@@ -337,7 +345,7 @@ class NetworkMapping:
             - m : memory resource usage / availability (on red and blue nodes only)
             - e : energy price (on all nodes) \n
             The edges are colored in red if they are used to map at least one logical link, and indicate their bandwidth usage / availability. \n
-            Saves the plot as  `./plots/physical_graph.pdf`\n
+            Saves the plot as  `./plots/physical_graph.svg`\n
 
             Argument : graph_name (str) : name of the graph and the file to save, default is "physical_graph"
         """
@@ -348,7 +356,7 @@ class NetworkMapping:
             graph_name,                     # name of the graph
             filename=graph_name,            # name of the file
             engine='neato',                 # layout engine (neato produces )
-            format='png',                   # output format
+            format='svg',                   # output format
             #rankdir='LR',                  # direction of the graph (LR = left to right), but this parameternot supported by neato
         )
         
@@ -407,7 +415,7 @@ class NetworkMapping:
 
 
 if __name__ == "__main__":
-    model = json_parser("model2")
+    model = json_parser("model3")
     network_mapping = NetworkMapping(model)
     network_mapping.run()
     print("Physical Links:", network_mapping.physical_links)
