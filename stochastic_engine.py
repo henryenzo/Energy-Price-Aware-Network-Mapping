@@ -70,6 +70,10 @@ def fetch_energy_prices(start=None, end=None, country_list=COUNTRIES.values(), c
         start = end - pd.Timedelta(days=1)
 
     for code in country_list:
+        if code == "GB":
+            # Because of Brexit, we don't have access to the UK day-ahead prices for free anymore, so let's just consider a great Ireland :-)
+            print(f"London and Glasgow are set to the same price as Dublin")
+            code = "IE_SEM"
         try:
             data[code] = client.query_day_ahead_prices(code, start=start, end=end)
         except NoMatchingDataError:
@@ -79,6 +83,11 @@ def fetch_energy_prices(start=None, end=None, country_list=COUNTRIES.values(), c
  
     df = pd.DataFrame(data).sort_index()
     df.index.name = "datetime"
+
+    # Apparently Swiss (CH) and Great Ireland (IE_SEM) only have a resolution of 1 hour so let's just ffill
+    df.ffill(inplace=True)
+
+
     df.to_csv(f"data/{csv_file_name}", sep=",", decimal=".", encoding="utf-8-sig")
     return df
 
@@ -111,12 +120,31 @@ def get_energy_prices_from_csv(csv_file_name="energy_prices.csv", time_slots=10,
     
     return prices_dict
     
+def json_parser(model_name: str, file_name = "test_models.json") -> dict: # same as in model_class.py
+    """
+        Helper function to parse the json file containing the test models and return the parameters of the model as a dict.\n
+        Arguments:  
+        - model_name: str, the name of the model to parse \n
+        - file_name:  str, the name of the json file containing the test models (default: "test_models.json" is the one I used for tests) \n
 
+        Returns: dict containing every paramters for the model (physGraph, sfc, availability, requirements etc)
+    """
 
+    with open(file_name, 'r') as file:
+        test_models = json.load(file)["test_models"]
+    #print(test_models["test_models"])
+    for model in test_models:
+        if model["model_name"] == model_name:
+            return model["model_parameters"]
+    raise ValueError(f"Model '{model_name}' does not exist")
 
 
 if __name__ == "__main__":
     start = pd.Timestamp("2026-06-25", tz="Europe/Brussels")
     end = pd.Timestamp("2026-06-26", tz="Europe/Brussels")
     country_list = list(COUNTRIES.values())
-    #fetch_energy_prices(start, end, country_list)
+
+    model = json_parser("nobel-eu")
+    country_list = list(set(model["node_country"].values()))
+
+    fetch_energy_prices(country_list=country_list, csv_file_name="energy_prices.csv")

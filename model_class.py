@@ -102,11 +102,14 @@ class NetworkMapping:
         self.bandwidth_requirement  = model["bandwidth_requirements"]       # meant to be a simple list
 
         try:
-            model_country_list = list(set(model["node_country"].values()))
+            model_country_list = list(set(model["node_country"].values())) 
+
             self.price_per_country  = get_energy_prices_from_csv(csv_file_name="energy_prices.csv", time_slots=self.N,country_list=model_country_list, stride=4)
             self.energy_price = {node: list(np.round(np.array(self.price_per_country[country])/100, 2)) for node, country in model["node_country"].items()}
             # division by 100 because the energy price values are too high compared to usage/disposal cost of nodes
-        except:
+        except Exception as e:
+            raise e 
+            print(f"Could not fetch energy prices from CSV, using default values\n{e}")
             self.energy_price       = model["energy_price"]                 # dict i1: [price_t1, price_t2, ..., price_tn] 
         self.CPU_usage_price        = model["CPU_usage_price"]
         self.memory_usage_price     = model["memory_usage_price"]
@@ -117,6 +120,8 @@ class NetworkMapping:
         self.k = 0      # maximum is self.N - 1
         self.cost = []
         self.overall_cost = 0
+
+        self.verbose = False
 
     def vertices_P(self):
         """ returns the vertices of the graph """
@@ -301,8 +306,9 @@ class NetworkMapping:
         try:
             self.gpmodel.optimize()
             if self.gpmodel.Status == GRB.OPTIMAL:
-                for v in self.gpmodel.getVars():
-                    print(f"{v.VarName} {v.X:g}")
+                if self.verbose:
+                    for v in self.gpmodel.getVars():
+                        print(f"{v.VarName} {v.X:g}")
                 print(f"Obj: {self.gpmodel.ObjVal:g}")
                 self.optimized_flag = 1
                 # self.plot_graph()
@@ -415,7 +421,7 @@ class NetworkMapping:
 
 
 if __name__ == "__main__":
-    model = json_parser("model3")
+    model = json_parser("nobel-eu")
     network_mapping = NetworkMapping(model)
     network_mapping.run()
     print("Physical Links:", network_mapping.physical_links)
