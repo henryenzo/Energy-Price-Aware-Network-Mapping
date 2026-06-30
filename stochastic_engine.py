@@ -87,7 +87,6 @@ def fetch_energy_prices(start=None, end=None, country_list=COUNTRIES.values(), c
     # Apparently Swiss (CH) and Great Ireland (IE_SEM) only have a resolution of 1 hour so let's just ffill
     df.ffill(inplace=True)
 
-
     df.to_csv(f"data/{csv_file_name}", sep=",", decimal=".", encoding="utf-8-sig")
     return df
 
@@ -205,4 +204,4 @@ if __name__ == "__main__":
 
     #fetch_energy_prices(country_list=country_list, csv_file_name="energy_prices.csv")
 
-    print(generate_virtual_graph([7]))
+    #print(generate_virtual_graph([7]))

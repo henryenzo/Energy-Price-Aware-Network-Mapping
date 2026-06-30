@@ -5,9 +5,6 @@
 
     TODO : I have a question relative to the flow conservation constraint. Is it really a sum over each j like in Trung's paper "Accelerating Network Slice Embedding..." or only the neighbours ? I considered only the neighbors here because it doesn't make any sense to map logical links to non-existing physical links, but maybe the variable has a hidden role.
 
-    TODO : adding a second sfc instance to the model 3.2, and precise the access nodes in the json file
-    TODO : actually, I will implement a more general virtual graph exactly like the physical graph, but not necessarily connected, and the logical links will be defined as a list of edges like the physical graph. This will allow to have more complex SFCs than just a linear chain of VNFs, and will allow to have multiple instances of the same SFC in the model. The flow conservation constraint will be modified as well
-
     Created on June 16th, 2026 by Enzo Henry
 """
 
@@ -40,7 +37,6 @@ def json_parser(model_name: str, file_name = "test_models.json") -> dict:
 
     with open(file_name, 'r') as file:
         test_models = json.load(file)["test_models"]
-    #print(test_models["test_models"])
     for model in test_models:
         if model["model_name"] == model_name:
             return model["model_parameters"]
@@ -48,29 +44,6 @@ def json_parser(model_name: str, file_name = "test_models.json") -> dict:
 
 
 class NetworkMapping:
-    def __init__(self):
-        """
-            Deprecated constructor of the class, I only keep it to remind of the structure of the model, but using it will cause the model to lack a lot of attributes and parameters, and will not be able to optimize the model. 
-        """
-        self.gpmodel = gp.Model("mip1")
-        self.physGraph = {"i1": ["i2", "i3"], "i2": ["i1", "i4"], "i3": ["i1", "i4"], "i4": ["i2", "i3"]}
-        self.physical_nodes = list(self.physGraph.keys())
-        self.physical_nodes_index = {node: idx for idx, node in enumerate(self.physical_nodes)}
-
-        #self.sfc = ["v1", "v2", "v3"]
-        self.logical_links = [(self.sfc[j], self.sfc[j+1]) for j in range(len(self.sfc)-1)]
-        self.physical_links = self.__generate_edges()
-        self.physical_link_index = {tuple(edge): idx for idx, edge in enumerate(self.physical_links)}
-
-        # model parameters : later they will be in their own class, but now we just want to test the model with some dummy values
-        # ah and only computing for the moment. Memory is analogous and I still have to figure out a good way to model bandwidth and edges
-        self.computing_availability = {"i1": 5, "i2": 5, "i3": 5, "i4": 5}
-        self.memory_availability    = {"i1": 5, "i2": 5, "i3": 5, "i4": 5}  # not implemented in the following yet
-        self.energy_price           = {"i1": 1, "i2": 2, "i3": 3, "i4": 1}
-        self.computing_requirements = {"v1": 2, "v2": 2, "v3": 2}
-
-        raise Exception("Deprecated constructor of the class, use the other one with a dict as input instead")
-
     def __init__(self, model: dict):
         """
             Constructor of the class, takes a dict as input containing the model parameters (physGraph, sfc, availability, requirements etc) and initializes the class attributes accordingly. \n
@@ -84,6 +57,7 @@ class NetworkMapping:
         self.N = 10
         self.gpmodel = gp.Model("mip1")
         self.optimized_flag = 0
+
         self.physGraph = model["physGraph"]
         self.physical_nodes = list(self.physGraph.keys())
         self.physical_nodes_index = {node: idx for idx, node in enumerate(self.physical_nodes)}
@@ -106,16 +80,17 @@ class NetworkMapping:
         self.memory_requirements    = model["memory_requirements"]          # dict as well
         self.bandwidth_requirement  = [model["bandwidth_requirements_dict"][vertex][neighbor] for vertex, neighbor in self.logical_links]  
 
+        # Energy price
         try:
             model_country_list = list(set(model["node_country"].values())) 
-
             self.price_per_country  = get_energy_prices_from_csv(csv_file_name="energy_prices.csv", time_slots=self.N,country_list=model_country_list, stride=4)
+            
             self.energy_price = {node: list(np.round(np.array(self.price_per_country[country])/100, 2)) for node, country in model["node_country"].items()}
             # division by 100 because the energy price values are too high compared to usage/disposal cost of nodes
         except Exception as e:
-            # raise e 
             print(f"Could not fetch energy prices from CSV, using default values")
             self.energy_price       = model["energy_price"]                 # dict i1: [price_t1, price_t2, ..., price_tn] 
+
         self.CPU_usage_price        = model["CPU_usage_price"]
         self.memory_usage_price     = model["memory_usage_price"]
         self.bandwidth_usage_price  = model["bandwidth_usage_price"]
@@ -127,15 +102,6 @@ class NetworkMapping:
         self.overall_cost = 0
 
         self.verbose = False
-
-    def vertices_P(self):
-        """ returns the vertices of the graph """
-        return self.physical_nodes
-    
-    def edges_P(self):
-        """ returns the edges of the graph """
-        # return self.__generate_edges()
-        return self.physical_links
     
     def __generate_edges(self, graph="physical"):
         """ generates the edges of the graph obtained by BFS from i1 to last, as a list of 2-lists, each 2-list representing an edge """
@@ -220,19 +186,6 @@ class NetworkMapping:
 
     def generate_access_nodes_constraints(self):
         # First VNF must be mapped to the first access node and the last VNF must be mapped to the last access node 
-        """for chain in range(len(self.access_nodes)/2):
-            self.gpmodel.addConstr( 
-                self.phi_node[
-                    self.virtual_nodes_index[list(self.access_nodes.keys())[2*chain]], 
-                    self.physical_nodes_index[list(self.access_nodes.values())[0]]
-                ] == 1
-            )
-            self.gpmodel.addConstr(
-                self.phi_node[
-                    self.virtual_nodes_index[list(self.access_nodes.keys())[2*chain+1]], 
-                    self.physical_nodes_index[list(self.access_nodes.values())[-1]]
-                ] == 1
-            )"""
         for access_node in self.access_nodes.items():
              # First VNF must be mapped to the first access node and the last VNF must be mapped to the last access node 
             self.gpmodel.addConstr( 
@@ -284,8 +237,7 @@ class NetworkMapping:
     
     def link_usage_cost(self):
         """
-            I'm not sure about this one yet, I don't know if it needs to be taken into account in the objective function or not.\n
-            Anyway it will force the model to take the shortest path for the logical links, which is a good thing I guess.\n
+            I'm not sure about this one yet, in my draft I don't take it into account but it will force the model to take the shortest path for the logical links, which is a good thing I guess.\n
             We take a fix cost of 0.1 for each link used
         """
         self.Cl = gp.quicksum(
@@ -368,7 +320,7 @@ class NetworkMapping:
         self.plot_graph(graph_name=f"physical_graph_k{self.k}")
         self.cost.append(self.gpmodel.ObjVal)
         self.overall_cost += self.gpmodel.ObjVal
-        for k in range(1, len(self.energy_price[self.physical_nodes[0]])):
+        for k in range(1, min(len(self.energy_price[self.physical_nodes[0]])), self.N): # fail-safe to avoid going out of bounds if the energy price list is shorter than N, maybe will it be better to integrate this directly into the constructor ?
             self.update_model()
             self.optimize()
             self.plot_graph(graph_name=f"physical_graph_k{self.k}")
