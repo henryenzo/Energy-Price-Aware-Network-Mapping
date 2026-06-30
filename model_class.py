@@ -5,9 +5,8 @@
 
     TODO : I have a question relative to the flow conservation constraint. Is it really a sum over each j like in Trung's paper "Accelerating Network Slice Embedding..." or only the neighbours ? I considered only the neighbors here because it doesn't make any sense to map logical links to non-existing physical links, but maybe the variable has a hidden role.
 
-    TODO : fetch data from ENTSO-E transparency platform and add country labels on the physical graph
-
-    TODO : add the time dimension now... looks like a big part of the problem though
+    TODO : adding a second sfc instance to the model 3.2, and precise the access nodes in the json file
+    TODO : actually, I will implement a more general virtual graph exactly like the physical graph, but not necessarily connected, and the logical links will be defined as a list of edges like the physical graph. This will allow to have more complex SFCs than just a linear chain of VNFs, and will allow to have multiple instances of the same SFC in the model. The flow conservation constraint will be modified as well
 
     Created on June 16th, 2026 by Enzo Henry
 """
@@ -58,7 +57,7 @@ class NetworkMapping:
         self.physical_nodes = list(self.physGraph.keys())
         self.physical_nodes_index = {node: idx for idx, node in enumerate(self.physical_nodes)}
 
-        self.sfc = ["v1", "v2", "v3"]
+        #self.sfc = ["v1", "v2", "v3"]
         self.logical_links = [(self.sfc[j], self.sfc[j+1]) for j in range(len(self.sfc)-1)]
         self.physical_links = self.__generate_edges()
         self.physical_link_index = {tuple(edge): idx for idx, edge in enumerate(self.physical_links)}
@@ -88,10 +87,16 @@ class NetworkMapping:
         self.physGraph = model["physGraph"]
         self.physical_nodes = list(self.physGraph.keys())
         self.physical_nodes_index = {node: idx for idx, node in enumerate(self.physical_nodes)}
-        self.sfc = model["sfc"]
-        self.logical_links = [(self.sfc[j], self.sfc[j+1]) for j in range(len(self.sfc)-1)]
-        self.physical_links = self.__generate_edges()       # list of 2-list representing an edge 
+        self.access_nodes = model["access_nodes"]   # is a dict like {"v1": "i1", "v7": "i10"}
+        self.physical_links = self.__generate_edges("physical")             # list of 2-list representing a physical link 
         self.physical_link_index = {tuple(edge): idx for idx, edge in enumerate(self.physical_links)}
+
+        self.virtualGraph = model["virtualGraph"]
+        self.virtual_nodes = list(self.virtualGraph.keys())
+        self.virtual_nodes_index = {node: idx for idx, node in enumerate(self.virtual_nodes)}
+        self.logical_links = self.__generate_edges("virtual")               # list of 2-list representing a logical link 
+        self.logical_links_index = {tuple(edge): idx for idx, edge in enumerate(self.logical_links)}
+
 
         self.computing_availability = model["computing_availability"]
         self.memory_availability    = model["memory_availability"]
@@ -99,7 +104,7 @@ class NetworkMapping:
 
         self.computing_requirements = model["computing_requirements"]       # dict of computing requirement for each VNF
         self.memory_requirements    = model["memory_requirements"]          # dict as well
-        self.bandwidth_requirement  = model["bandwidth_requirements"]       # meant to be a simple list
+        self.bandwidth_requirement  = [model["bandwidth_requirements_dict"][vertex][neighbor] for vertex, neighbor in self.logical_links]  
 
         try:
             model_country_list = list(set(model["node_country"].values())) 
@@ -108,8 +113,8 @@ class NetworkMapping:
             self.energy_price = {node: list(np.round(np.array(self.price_per_country[country])/100, 2)) for node, country in model["node_country"].items()}
             # division by 100 because the energy price values are too high compared to usage/disposal cost of nodes
         except Exception as e:
-            raise e 
-            print(f"Could not fetch energy prices from CSV, using default values\n{e}")
+            # raise e 
+            print(f"Could not fetch energy prices from CSV, using default values")
             self.energy_price       = model["energy_price"]                 # dict i1: [price_t1, price_t2, ..., price_tn] 
         self.CPU_usage_price        = model["CPU_usage_price"]
         self.memory_usage_price     = model["memory_usage_price"]
@@ -132,43 +137,48 @@ class NetworkMapping:
         # return self.__generate_edges()
         return self.physical_links
     
-    def __generate_edges(self):
+    def __generate_edges(self, graph="physical"):
         """ generates the edges of the graph obtained by BFS from i1 to last, as a list of 2-lists, each 2-list representing an edge """
         edges = []
-        for vertex in self.physGraph:
-            for neighbour in self.physGraph[vertex]:
-                if (neighbour, vertex) not in edges:
-                    edges.append([vertex, neighbour])
+        if graph == "physical":
+            for vertex in self.physGraph:
+                for neighbour in self.physGraph[vertex]:
+                    if (neighbour, vertex) not in edges:
+                        edges.append([vertex, neighbour])
+        elif graph == "virtual":
+            for vertex in self.virtualGraph:
+                for neighbour in self.virtualGraph[vertex]:
+                    if (neighbour, vertex) not in edges:
+                        edges.append([vertex, neighbour])
         return edges
 
     def generate_mapping_variables(self):
         """ generates the mapping variables for the VNFs to physical servers and for the logical links to physical links """
         # Numpy array of binary variables for the mapping of VNFs to physical servers (the only ones we need for now)
-        self.phi_node = self.gpmodel.addMVar((len(self.sfc), len(self.physical_nodes)), vtype=GRB.BINARY, name="phi_nodes")
-        self.phi_link = self.gpmodel.addMVar((len(self.sfc)-1, len(self.edges_P())), vtype=GRB.BINARY, name="phi_link")
+        self.phi_node = self.gpmodel.addMVar((len(self.virtual_nodes), len(self.physical_nodes)), vtype=GRB.BINARY, name="phi_nodes")
+        self.phi_link = self.gpmodel.addMVar((len(self.logical_links), len(self.edges_P())), vtype=GRB.BINARY, name="phi_link")
         # node activation variables, sigma_i = 1 if at least one VNF is mapped to node i, 0 otherwise
         self.sigma = self.gpmodel.addMVar((len(self.physical_nodes),), vtype=GRB.BINARY, name="sigma")
         # migration variables, xi_v,i = 1 if VNF v is migrated to node i, 0 otherwise
-        #self.xi = self.gpmodel.addMVar((len(self.sfc), len(self.physical_nodes)), vtype=GRB.BINARY, name="xi")
+        #self.xi = self.gpmodel.addMVar((len(self.virtual_nodes), len(self.physical_nodes)), vtype=GRB.BINARY, name="xi")
 
     def generate_mapping_constraints(self):
         """ generates the mapping constraints on phi_node and phi_link """
         # Each VNF must be mapped to exactly one physical server
-        for v in range(len(self.sfc)):
+        for v in range(len(self.virtual_nodes)):
             self.gpmodel.addConstr(
                 gp.quicksum(self.phi_node[v, i] for i in range(len(self.physical_nodes))) == 1
             )
         # Flow conservation constraints for the logical links 
         for i_index, i in enumerate(self.physical_nodes):
-            for vlink in range(len(self.logical_links)):
+            for vlink_index, (v, w) in enumerate(self.logical_links):
                 self.gpmodel.addConstr(
                     gp.quicksum(
-                        self.phi_link[vlink, self.physical_link_index[(i, j)]] 
-                        - self.phi_link[vlink, self.physical_link_index[(j, i)]] 
+                        self.phi_link[vlink_index, self.physical_link_index[(i, j)]] 
+                        - self.phi_link[vlink_index, self.physical_link_index[(j, i)]] 
                         for j_index, j in enumerate(self.physGraph[i])
                     )
-                    == self.phi_node[vlink, i_index] - self.phi_node[vlink+1, i_index] 
-                    # last line to be modified when we'll have more complicated VNF graphs, for now it's ok since we have a linear SFC                                                  
+                    == self.phi_node[self.virtual_nodes_index[v], i_index] - self.phi_node[self.virtual_nodes_index[w], i_index]                
                 )
     
     def generate_node_activation_constraints(self):
@@ -177,50 +187,70 @@ class NetworkMapping:
         for i_index in range(len(self.physical_nodes)):
             self.gpmodel.addGenConstrOr(        
                 self.sigma[i_index],
-                [self.phi_node[v, i_index] for v in range(len(self.sfc))]
+                [self.phi_node[v, i_index] for v in range(len(self.virtual_nodes))]
             )
 
     def generate_availability_constraints(self):
         # Availability constraints for the physical servers only, access nodes excluded in the range
-        for i_index in range(1, len(self.physical_nodes)-1):
-            # In terms of computing resource
-            self.gpmodel.addConstr(
-                gp.quicksum(
-                    self.phi_node[v_index, i_index] * self.computing_requirements[v] 
-                        for v_index, v in enumerate(self.sfc)
-                ) <=  self.computing_availability[self.physical_nodes[i_index]]
-            )
-            # In terms of memory resource
-            self.gpmodel.addConstr(
-                gp.quicksum(
-                    self.phi_node[v_index, i_index] * self.memory_requirements[v] 
-                        for v_index, v in enumerate(self.sfc)
-                ) <=  self.memory_availability[self.physical_nodes[i_index]]
-            )
+        for i_index, i in enumerate(self.physical_nodes):
+            if i not in self.access_nodes: # just erase this line to apply the constraints to access nodes as well
+                # In terms of computing resource
+                self.gpmodel.addConstr(
+                    gp.quicksum(
+                        self.phi_node[v_index, i_index] * self.computing_requirements[v] 
+                            for v_index, v in enumerate(self.virtual_nodes)
+                    ) <=  self.computing_availability[self.physical_nodes[i_index]]
+                )
+                # In terms of memory resource
+                self.gpmodel.addConstr(
+                    gp.quicksum(
+                        self.phi_node[v_index, i_index] * self.memory_requirements[v] 
+                            for v_index, v in enumerate(self.virtual_nodes)
+                    ) <=  self.memory_availability[self.physical_nodes[i_index]]
+                )
 
         # And in terms of bandwidth usage
         for i, j in self.physical_links:
             self.gpmodel.addConstr(
                 gp.quicksum(
-                    self.phi_link[v_link, self.physical_link_index[(i, j)]] * self.bandwidth_requirement[v_link] 
-                        for v_link in range(len(self.logical_links))
+                    self.phi_link[vlink_index, self.physical_link_index[(i, j)]] * self.bandwidth_requirement[vlink_index] 
+                        for vlink_index, (v,w) in enumerate(self.logical_links)
                 ) <= self.bandwidth_availability[self.physical_link_index[(i, j)]]
             )
 
     def generate_access_nodes_constraints(self):
-        # First VNF must be mapped to the access node i1 and the last VNF must be mapped to the access node i4 (or whatever the last node is)
-        self.gpmodel.addConstr(self.phi_node[0, 0] == 1)
-        self.gpmodel.addConstr(self.phi_node[len(self.sfc)-1, len(self.physical_nodes)-1] == 1)
-        # and only those two VNFs can be mapped to the access nodes
-        for v in range(1, len(self.sfc)-1):
-            self.gpmodel.addConstr(self.phi_node[v, 0] == 0)
-            self.gpmodel.addConstr(self.phi_node[v, len(self.physical_nodes)-1] == 0)
+        # First VNF must be mapped to the first access node and the last VNF must be mapped to the last access node 
+        """for chain in range(len(self.access_nodes)/2):
+            self.gpmodel.addConstr( 
+                self.phi_node[
+                    self.virtual_nodes_index[list(self.access_nodes.keys())[2*chain]], 
+                    self.physical_nodes_index[list(self.access_nodes.values())[0]]
+                ] == 1
+            )
+            self.gpmodel.addConstr(
+                self.phi_node[
+                    self.virtual_nodes_index[list(self.access_nodes.keys())[2*chain+1]], 
+                    self.physical_nodes_index[list(self.access_nodes.values())[-1]]
+                ] == 1
+            )"""
+        for access_node in self.access_nodes.items():
+             # First VNF must be mapped to the first access node and the last VNF must be mapped to the last access node 
+            self.gpmodel.addConstr( 
+                self.phi_node[
+                    self.virtual_nodes_index[access_node[0]], 
+                    self.physical_nodes_index[access_node[1]]
+                ] == 1
+            )
+            # and only those two VNFs can be mapped to the access nodes
+            for v_index, v in enumerate(self.virtual_nodes):
+                if v not in self.access_nodes.keys():
+                    self.gpmodel.addConstr(self.phi_node[v_index, self.physical_nodes_index[access_node[1]]] == 0)
 
     def energy_cost(self): 
         # depends on k 
         self.Ce = gp.quicksum(
             self.energy_price[self.physical_nodes[i]][self.k] * gp.quicksum(
-                self.phi_node[v, i] for v in range(len(self.sfc))
+                self.phi_node[v, i] for v in range(len(self.virtual_nodes))
             ) for i in range(len(self.physical_nodes))
         )
         return self.Ce
@@ -234,13 +264,19 @@ class NetworkMapping:
     def usage_cost(self):
         self.Cr = gp.quicksum(
             gp.quicksum(
-                self.CPU_usage_price[self.physical_nodes[i]] * self.phi_node[v, i] * self.computing_requirements[self.sfc[v]] for v in range(len(self.sfc))
+                self.CPU_usage_price[self.physical_nodes[i]] * self.phi_node[v, i] * self.computing_requirements[self.virtual_nodes[v]] 
+                for v in range(len(self.virtual_nodes))
             ) 
             + gp.quicksum(
-                self.memory_usage_price[self.physical_nodes[i]] * self.phi_node[v, i] * self.memory_requirements[self.sfc[v]] for v in range(len(self.sfc))
+                self.memory_usage_price[self.physical_nodes[i]] * self.phi_node[v, i] * self.memory_requirements[self.virtual_nodes[v]] 
+                for v in range(len(self.virtual_nodes))
             ) 
             + gp.quicksum(
-                self.bandwidth_usage_price[self.physical_nodes[i]][self.physical_nodes[j]] * self.phi_link[v_link, self.physical_link_index[(self.physical_nodes[i], self.physical_nodes[j])]] * self.bandwidth_requirement[v_link] for v_link in range(len(self.logical_links)) for j in range(len(self.physical_nodes)) if (self.physical_nodes[i], self.physical_nodes[j]) in self.physical_links
+                self.bandwidth_usage_price[self.physical_nodes[i]][self.physical_nodes[j]] 
+                * self.phi_link[v_link, self.physical_link_index[(self.physical_nodes[i], self.physical_nodes[j])]] 
+                * self.bandwidth_requirement[v_link] 
+                for v_link in range(len(self.logical_links)) 
+                for j in range(len(self.physical_nodes)) if (self.physical_nodes[i], self.physical_nodes[j]) in self.physical_links
             )
             for i in range(len(self.physical_nodes))
         )
@@ -369,19 +405,19 @@ class NetworkMapping:
         g.attr(overlap='false')
         g.attr(sep='+0')
         for i, j in self.physical_links:
-            i_used  =   [self.sfc[v] for v in range(len(self.sfc)) if self.phi_node.X[v, self.physical_nodes_index[i]]]
-            j_used  =   [self.sfc[v] for v in range(len(self.sfc)) if self.phi_node.X[v, self.physical_nodes_index[j]]]
+            i_used  =   [self.virtual_nodes[v] for v in range(len(self.virtual_nodes)) if self.phi_node.X[v, self.physical_nodes_index[i]]]
+            j_used  =   [self.virtual_nodes[v] for v in range(len(self.virtual_nodes)) if self.phi_node.X[v, self.physical_nodes_index[j]]]
             ij_used =   [self.logical_links[v_link] for v_link in range(len(self.logical_links)) if self.phi_link.X[v_link, self.physical_link_index[(i, j)]]]
 
             link_label = f"{self.phi_link.X[:, self.physical_link_index[(i, j)]] @ self.bandwidth_requirement[:]}/{self.bandwidth_availability[self.physical_link_index[(i, j)]]}"
 
-            node_i_compute = f" \n c: {sum(self.phi_node.X[index_v, self.physical_nodes_index[i]] * self.computing_requirements[v] for index_v, v in enumerate(self.sfc))}/{self.computing_availability[i]}"
-            node_i_memory = f" \n m: {sum(self.phi_node.X[index_v, self.physical_nodes_index[i]] * self.memory_requirements[v] for index_v, v in enumerate(self.sfc))}/{self.memory_availability[i]}"
+            node_i_compute = f" \n c: {sum(self.phi_node.X[index_v, self.physical_nodes_index[i]] * self.computing_requirements[v] for index_v, v in enumerate(self.virtual_nodes))}/{self.computing_availability[i]}"
+            node_i_memory = f" \n m: {sum(self.phi_node.X[index_v, self.physical_nodes_index[i]] * self.memory_requirements[v] for index_v, v in enumerate(self.virtual_nodes))}/{self.memory_availability[i]}"
             node_i_energy_price = f" \n e: {self.energy_price[i][self.k]}"
             node_i_label = f"{i} ({i_used})" + node_i_compute + node_i_memory + node_i_energy_price
             
-            node_j_compute = f" \n c: {sum(self.phi_node.X[index_v, self.physical_nodes_index[j]] * self.computing_requirements[v] for index_v, v in enumerate(self.sfc))}/{self.computing_availability[j]}"
-            node_j_memory = f" \n m: {sum(self.phi_node.X[index_v, self.physical_nodes_index[j]] * self.memory_requirements[v] for index_v, v in enumerate(self.sfc))}/{self.memory_availability[j]}"
+            node_j_compute = f" \n c: {sum(self.phi_node.X[index_v, self.physical_nodes_index[j]] * self.computing_requirements[v] for index_v, v in enumerate(self.virtual_nodes))}/{self.computing_availability[j]}"
+            node_j_memory = f" \n m: {sum(self.phi_node.X[index_v, self.physical_nodes_index[j]] * self.memory_requirements[v] for index_v, v in enumerate(self.virtual_nodes))}/{self.memory_availability[j]}"
             node_j_energy_price = f" \n e: {self.energy_price[j][self.k]}"
             node_j_label = f"{j} ({j_used})" + node_j_compute + node_j_memory + node_j_energy_price
 
@@ -396,15 +432,15 @@ class NetworkMapping:
             if len(j_used) > 0:
                 g.node(j, label=node_j_label, fontsize='10', color='red', fontcolor='red')
                 
+        for access_node in self.access_nodes.values():
+            g.node(access_node, color='blue', fontcolor='blue')
 
-        g.node(self.physical_nodes[0], color='blue', fontcolor='blue')
-        g.node(self.physical_nodes[-1], color='blue', fontcolor='blue')
         g.attr(label=f"k={self.k}", labelloc="t", labeljust="l", fontsize="14", fontcolor="black")
         g.render(directory=str(plots_dir), cleanup=True)
 
     def plot_all_graphs(self, k_values, n_cols=5):
         # this function was generated by Claude AI to help me plot all the graphs for each time slot k in a grid, and save it as a single image
-        # but I am not satisfied with the result (all_timeslots). Will I need to display them all on the same figure for my paper ?
+        # but I am not satisfied with the result (all_timeslots), as it is barely reeadable and rasterized. Will I need to display them all on the same figure for my paper ?
         paths = [f"plots/physical_graph_k{k}.png" for k in k_values]
         images = [Image.open(p) for p in paths]
         w, h = max(im.width for im in images), max(im.height for im in images)
@@ -421,8 +457,10 @@ class NetworkMapping:
 
 
 if __name__ == "__main__":
+    #model = json_parser("model3.2")
     model = json_parser("nobel-eu")
     network_mapping = NetworkMapping(model)
     network_mapping.run()
     print("Physical Links:", network_mapping.physical_links)
+    print("Logical links: ", network_mapping.logical_links)
     # network_mapping.plot_all_graphs(k_values=range(len(network_mapping.energy_price[network_mapping.physical_nodes[0]])), n_cols=5)

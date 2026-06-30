@@ -5,15 +5,16 @@
             "description": "1 SFC, 1 real VNF, 2 physical servers and 2 access nodes in a square",
             "model_parameters": {
                 "physGraph": {"i1": ["i2", "i3"], "i2": ["i1", "i4"], "i3": ["i1", "i4"], "i4": ["i2", "i3"]},
-                "sfc": ["v1", "v2", "v3"],
+                "access_nodes": {"v1": "i1", "v3": "i4"},
+
+                "virtualGraph": {"v1": ["v2"], "v2": ["v3"], "v3": []},
+                "computing_requirements": {"v1": 2, "v2": 2, "v3": 2},
+                "memory_requirements": {"v1": 2, "v2": 2, "v3": 2},
+                "bandwidth_requirements_dict": {"v1": {"v2": 2}, "v2": {"v3": 2}, "v3": {}},
                 
                 "computing_availability":       {"i1": 5, "i2": 5, "i3": 5, "i4": 5},
                 "memory_availability":          {"i1": 5, "i2": 5, "i3": 5, "i4": 5},
                 "bandwidth_availability_dict":      {"i1": {"i2": 5, "i3": 5}, "i2": {"i1": 5, "i4": 5}, "i3": {"i1": 5, "i4": 5}, "i4": {"i2": 5, "i3": 5}},
-
-                "computing_requirements":   {"v1": 2, "v2": 2, "v3": 2},
-                "memory_requirements":      {"v1": 2, "v2": 2, "v3": 2},
-                "bandwidth_requirements":       [2, 2],
 
                 "energy_price":             {"i1": [1, 1, 1, 2, 3, 2, 4, 1, 2, 3], "i2": [2, 2, 3, 2, 2, 1, 2, 3, 2, 2], "i3": [3, 3, 2, 3, 4, 3, 3, 2, 3, 4], "i4": [1, 1, 1, 2, 1, 1, 2, 1, 1, 2]}, 
                 "CPU_usage_price":          {"i1": 1, "i2": 1, "i3": 1, "i4": 1},
@@ -29,15 +30,16 @@
             "description": "1 SFC, 2 real VNFs, 4 physical servers in a one-barred square and 2 access nodes",
             "model_parameters": {
                 "physGraph": {"i1": ["i2", "i3"], "i2": ["i1", "i4"], "i3": ["i1", "i4", "i5"], "i4": ["i2", "i3", "i6"], "i5": ["i3", "i6"], "i6": ["i4", "i5"]},
-                "sfc": ["v1", "v2", "v3", "v4"],
+                "access_nodes": ["i1", "i6"],
 
                 "computing_availability":       {"i1": 5, "i2": 5, "i3": 5, "i4": 5, "i5": 5, "i6": 5},
                 "memory_availability":          {"i1": 5, "i2": 5, "i3": 5, "i4": 5, "i5": 5, "i6": 5},
                 "bandwidth_availability_dict":  {"i1": {"i2": 5, "i3": 5}, "i2": {"i1": 5, "i4": 5}, "i3": {"i1": 5, "i4": 5, "i5": 5}, "i4": {"i2": 5, "i3": 5, "i5": 5, "i6": 5}, "i5": {"i3": 5, "i6": 5}, "i6": {"i4": 5, "i5": 5}},
 
-                "computing_requirements":   {"v1": 2, "v2": 2, "v3": 2, "v4": 2},
-                "memory_requirements":      {"v1": 2, "v2": 2, "v3": 2, "v4": 2},
-                "bandwidth_requirements":   [2, 2, 2],
+                "virtualGraph": {"v1": ["v2"], "v2": ["v3"], "v3": ["v4"], "v4": []},
+                "computing_requirements": {"v1": 2, "v2": 2, "v3": 2, "v4": 2},
+                "memory_requirements": {"v1": 1, "v2": 1, "v3": 1, "v4": 1},
+                "bandwidth_requirements_dict": {"v1": {"v2": 1}, "v2": {"v3": 1}, "v3": {"v4": 1}, "v4": {}},
 
                 "energy_price":             {"i1": [1, 2, 3, 4, 2, 1, 3, 4, 2, 1], "i2": [2, 1, 2, 3, 4, 2, 1, 2, 3, 4], "i3": [3, 2, 1, 2, 3, 4, 2, 1, 2, 3], "i4": [4, 3, 2, 1, 2, 3, 4, 2, 1, 2], "i5": [2, 3, 4, 2, 1, 2, 3, 4, 1, 2], "i6": [3, 4, 2, 1, 2, 1, 2, 3, 4, 1]},
                 "CPU_usage_price":          {"i1": 1, "i2": 1, "i3": 1, "i4": 1, "i5": 1, "i6": 1},
@@ -52,38 +54,67 @@
             "description": "1 SFC, 5 real VNFs, 8 physical servers and 2 access nodes",
             "model_parameters": {
                 "physGraph": {"i1": ["i2", "i3"], "i2": ["i1", "i4", "i5", "i6"], "i3": ["i1", "i5"], "i4": ["i2", "i7"], "i5": ["i2", "i3", "i7", "i8"], "i6": ["i2", "i9"], "i7": ["i4", "i5", "i8", "i10"], "i8": ["i5", "i7", "i9", "i10"], "i9": ["i6", "i8", "i10"], "i10": ["i7", "i8", "i9"]},
-                "sfc": ["v1", "v2", "v3", "v4", "v5", "v6", "v7"],
+                "access_nodes": {"v1": "i1", "v7": "i10"},
 
                 "computing_availability":       {"i1": 5, "i2": 5, "i3": 5, "i4": 5, "i5": 5, "i6": 5, "i7": 5, "i8": 5, "i9": 5, "i10": 5},
                 "memory_availability":          {"i1": 5, "i2": 5, "i3": 5, "i4": 5, "i5": 5, "i6": 5, "i7": 5, "i8": 5, "i9": 5, "i10": 5},
                 "bandwidth_availability_dict":  {"i1": {"i2": 5, "i3": 5}, "i2": {"i1": 5, "i4": 5, "i5": 5, "i6": 5}, "i3": {"i1": 5, "i5": 5}, "i4": {"i2": 5, "i7": 5}, "i5": {"i2": 5, "i3": 5, "i7": 5, "i8": 5}, "i6": {"i2": 5, "i9": 5}, "i7": {"i4": 5, "i5": 5, "i8": 5, "i10": 5}, "i8": {"i5": 5, "i7": 5, "i9": 5, "i10": 5}, "i9": {"i6": 5, "i8": 5, "i10": 5}, "i10": {"i7": 5, "i8": 5, "i9": 5}},
 
-                "computing_requirements":   {"v1": 2, "v2": 2, "v3": 2, "v4": 2, "v5": 2, "v6": 2, "v7": 2},
-                "memory_requirements":      {"v1": 2, "v2": 2, "v3": 2, "v4": 2, "v5": 2, "v6": 2, "v7": 2},
-                "bandwidth_requirements":   [2, 2, 2, 2, 2, 2],
+                "virtualGraph": {"v1": ["v2"], "v2": ["v3"], "v3": ["v4"], "v4": ["v5"], "v5": ["v6"], "v6": ["v7"], "v7": []},
+                "computing_requirements": {"v1": 4, "v2": 4, "v3": 4, "v4": 4, "v5": 4, "v6": 4, "v7": 4},
+                "memory_requirements": {"v1": 2, "v2": 2, "v3": 2, "v4": 2, "v5": 2, "v6": 2, "v7": 2},
+                "bandwidth_requirements_dict": {"v1": {"v2": 1}, "v2": {"v3": 1}, "v3": {"v4": 1}, "v4": {"v5": 1}, "v5": {"v6": 1}, "v6": {"v7": 1}, "v7": {}},
 
                 "energy_price":             {"i1": [4, 4, 2, 2, 5, 3, 5, 1, 1, 2], "i2": [5, 5, 2, 2, 3, 3, 3, 2, 2, 4], "i3": [5, 3, 2, 1, 1, 2, 4, 4, 4, 2], "i4": [4, 1, 1, 2, 4,3, 4, 3, 4, 4], "i5": [4, 1, 5, 5, 3, 2, 2, 1, 2, 5], "i6": [4, 3, 3, 1, 5, 4, 3, 5, 2, 5], "i7": [3, 3, 2, 1, 3, 4, 2, 4, 1, 4], "i8": [1, 4, 5, 2, 2, 4, 5, 1, 1, 2], "i9": [5, 1, 1, 5, 1, 4, 3, 2, 5, 4], "i10": [5, 3, 4, 2, 2, 5, 1, 4, 5, 2]},
                 "CPU_usage_price":          {"i1": 1, "i2": 1, "i3": 1, "i4": 1, "i5": 1, "i6": 1, "i7": 1, "i8": 1, "i9": 1, "i10": 1},
                 "memory_usage_price":       {"i1": 1, "i2": 1, "i3": 1, "i4": 1, "i5": 1, "i6": 1, "i7": 1, "i8": 1, "i9": 1, "i10": 1},
                 "bandwidth_usage_price":    {"i1": {"i2": 1, "i3": 1}, "i2": {"i1": 1, "i4": 1}, "i3": {"i1": 1, "i4": 1}, "i4": {"i2": 1, "i3": 1}},
                 "node_disposal_price":      {"i1": 1, "i2": 1, "i3": 1, "i4": 1, "i5": 1, "i6": 1, "i7": 1, "i8": 1, "i9": 1, "i10": 1},
-                "node_country":             {"i1": "FR", "i2": "FR", "i3": "FR", "i4": "DE_LU", "i5": "DE_LU", "i6": "IT_NORD", "i7": "DE_LU", "i8": "DE_LU", "i9": "IT_NORD", "i10": "IT_NORD"} 
+                "node_country":             {"i1": "FR", "i2": "FR", "i3": "FR", "i4": "DE_LU", "i5": "FR", "i6": "IT_NORD", "i7": "DE_LU", "i8": "DE_LU", "i9": "IT_NORD", "i10": "IT_NORD"} 
+            } 
+        },
+        {
+            "model_name": "model3.2", 
+            "description": "2 instances of 1 SFC, 5 real VNFs, 8 physical servers and 2 access nodes",
+            "model_parameters": {
+                "physGraph": {"i1": ["i2", "i3"], "i2": ["i1", "i4", "i5", "i6"], "i3": ["i1", "i5"], "i4": ["i2", "i7"], "i5": ["i2", "i3", "i7", "i8"], "i6": ["i2", "i9"], "i7": ["i4", "i5", "i8", "i10"], "i8": ["i5", "i7", "i9", "i10"], "i9": ["i6", "i8", "i10"], "i10": ["i7", "i8", "i9"]},
+                "access_nodes": {"s1v1": "i1", "s1v6": "i10", "s2v1": "i1", "s2v4": "i10"},
+
+                "virtualGraph": {"s1v1": ["s1v2"], "s1v2": ["s1v3"], "s1v3": ["s1v4"], "s1v4": ["s1v5"], "s1v5": ["s1v6"], "s1v6": [], "s2v1": ["s2v2"], "s2v2": ["s2v3"], "s2v3": ["s2v4"], "s2v4": []},
+                "computing_requirements": {"s1v1": 2, "s1v2": 2, "s1v3": 2, "s1v4": 2, "s1v5": 2, "s1v6": 2, "s2v1": 2, "s2v2": 2, "s2v3": 2, "s2v4": 2},
+                "memory_requirements": {"s1v1": 2, "s1v2": 2, "s1v3": 2, "s1v4": 2, "s1v5": 2, "s1v6": 2, "s2v1": 2, "s2v2": 2, "s2v3": 2, "s2v4": 2},
+                "bandwidth_requirements_dict": {"s1v1": {"s1v2": 2}, "s1v2": {"s1v3": 2}, "s1v3": {"s1v4": 2}, "s1v4": {"s1v5": 2}, "s1v5": {"s1v6": 2}, "s1v6": {}, "s2v1": {"s2v2": 2}, "s2v2": {"s2v3": 2}, "s2v3": {"s2v4": 2}, "s2v4": {}},
+
+                "computing_availability":       {"i1": 5, "i2": 5, "i3": 5, "i4": 5, "i5": 5, "i6": 5, "i7": 5, "i8": 5, "i9": 5, "i10": 5},
+                "memory_availability":          {"i1": 5, "i2": 5, "i3": 5, "i4": 5, "i5": 5, "i6": 5, "i7": 5, "i8": 5, "i9": 5, "i10": 5},
+                "bandwidth_availability_dict":  {"i1": {"i2": 5, "i3": 5}, "i2": {"i1": 5, "i4": 5, "i5": 5, "i6": 5}, "i3": {"i1": 5, "i5": 5}, "i4": {"i2": 5, "i7": 5}, "i5": {"i2": 5, "i3": 5, "i7": 5, "i8": 5}, "i6": {"i2": 5, "i9": 5}, "i7": {"i4": 5, "i5": 5, "i8": 5, "i10": 5}, "i8": {"i5": 5, "i7": 5, "i9": 5, "i10": 5}, "i9": {"i6": 5, "i8": 5, "i10": 5}, "i10": {"i7": 5, "i8": 5, "i9": 5}},
+
+        
+                "energy_price":             {"i1": [4, 4, 2, 2, 5, 3, 5, 1, 1, 2], "i2": [5, 5, 2, 2, 3, 3, 3, 2, 2, 4], "i3": [5, 3, 2, 1, 1, 2, 4, 4, 4, 2], "i4": [4, 1, 1, 2, 4,3, 4, 3, 4, 4], "i5": [4, 1, 5, 5, 3, 2, 2, 1, 2, 5], "i6": [4, 3, 3, 1, 5, 4, 3, 5, 2, 5], "i7": [3, 3, 2, 1, 3, 4, 2, 4, 1, 4], "i8": [1, 4, 5, 2, 2, 4, 5, 1, 1, 2], "i9": [5, 1, 1, 5, 1, 4, 3, 2, 5, 4], "i10": [5, 3, 4, 2, 2, 5, 1, 4, 5, 2]},
+                "CPU_usage_price":          {"i1": 1, "i2": 1, "i3": 1, "i4": 1, "i5": 1, "i6": 1, "i7": 1, "i8": 1, "i9": 1, "i10": 1},
+                "memory_usage_price":       {"i1": 1, "i2": 1, "i3": 1, "i4": 1, "i5": 1, "i6": 1, "i7": 1, "i8": 1, "i9": 1, "i10": 1},
+                "bandwidth_usage_price":    {"i1": {"i2": 1, "i3": 1}, "i2": {"i1": 1, "i4": 1}, "i3": {"i1": 1, "i4": 1}, "i4": {"i2": 1, "i3": 1}},
+                "node_disposal_price":      {"i1": 1, "i2": 1, "i3": 1, "i4": 1, "i5": 1, "i6": 1, "i7": 1, "i8": 1, "i9": 1, "i10": 1},
+                "node_country":             {"i1": "FR", "i2": "FR", "i3": "FR", "i4": "DE_LU", "i5": "FR", "i6": "IT_NORD", "i7": "DE_LU", "i8": "DE_LU", "i9": "IT_NORD", "i10": "IT_NORD"} 
             } 
         },
         {
             "model_name": "nobel-eu",
-            "description": "1 SFC, 10 real VNFs, Nobel-EU topology (28 nodes, 41 european physical links)",
+            "description": "2 SFCs, 10 + 6 real VNFs, Nobel-EU topology (28 nodes, 41 european physical links)",
             "model_parameters": {
                 "physGraph": {"Amsterdam": ["Brussels", "Glasgow", "Hamburg", "London"], "Brussels": ["Amsterdam", "Frankfurt", "Paris"], "Glasgow": ["Amsterdam", "Dublin"], "Hamburg": ["Amsterdam", "Berlin", "Frankfurt"], "London": ["Amsterdam", "Dublin", "Paris"], "Athens": ["Belgrade", "Rome"], "Belgrade": ["Athens", "Budapest", "Zagreb"], "Rome": ["Athens", "Milan", "Zagreb"], "Barcelona": ["Lyon", "Madrid"], "Lyon": ["Barcelona", "Paris", "Zurich"], "Madrid": ["Barcelona", "Bordeaux"], "Budapest": ["Belgrade", "Prague", "Warsaw"], "Zagreb": ["Belgrade", "Rome", "Vienna"], "Berlin": ["Copenhagen", "Hamburg", "Munich", "Prague", "Warsaw"], "Copenhagen": ["Berlin", "Oslo"], "Munich": ["Berlin", "Frankfurt", "Milan", "Vienna"], "Prague": ["Berlin", "Budapest", "Vienna"], "Warsaw": ["Berlin", "Budapest", "Stockholm"], "Bordeaux": ["Madrid", "Paris"], "Paris": ["Bordeaux", "Brussels", "London", "Lyon", "Strasbourg"], "Frankfurt": ["Brussels", "Hamburg", "Munich", "Strasbourg"], "Oslo": ["Copenhagen", "Stockholm"], "Dublin": ["Glasgow", "London"], "Strasbourg": ["Frankfurt", "Paris", "Zurich"], "Milan": ["Munich", "Rome", "Zurich"], "Zurich": ["Lyon", "Milan", "Strasbourg"], "Vienna": ["Munich", "Prague", "Zagreb"], "Stockholm": ["Oslo", "Warsaw"]},
-                "sfc": ["v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "v10", "v11", "v12"],
+                "virtualGraph": {"v1": ["v2"], "v2": ["v3"], "v3": ["v4"], "v4": ["v5"], "v5": ["v6"], "v6": ["v7"], "v7": ["v8"], "v8": ["v9"], "v9": ["v10"], "v10": ["v11"], "v11": ["v12"], "v12": [], 
+                                "v1'": ["v2'"], "v2'": ["v3'"], "v3'": ["v4'"], "v4'": ["v5'"], "v5'": ["v6'"], "v6'": ["v7'"], "v7'": ["v8'"], "v8'": []},
+                "access_nodes": {"v1": "Amsterdam", "v11": "Zurich", "v1'": "Athens", "v8'": "Rome"},
 
                 "computing_availability": {"Amsterdam": 5, "Athens": 5, "Barcelona": 5, "Belgrade": 5, "Berlin": 5, "Bordeaux": 5, "Brussels": 5, "Budapest": 5, "Copenhagen": 5, "Dublin": 5, "Frankfurt": 5, "Glasgow": 5, "Hamburg": 5, "London": 5, "Lyon": 5, "Madrid": 5, "Milan": 5, "Munich": 5, "Oslo": 5, "Paris": 5, "Prague": 5, "Rome": 5, "Stockholm": 5, "Strasbourg": 5, "Vienna": 5, "Warsaw": 5, "Zagreb": 5, "Zurich": 5},
                 "memory_availability": {"Amsterdam": 5, "Athens": 5, "Barcelona": 5, "Belgrade": 5, "Berlin": 5, "Bordeaux": 5, "Brussels": 5, "Budapest": 5, "Copenhagen": 5, "Dublin": 5, "Frankfurt": 5, "Glasgow": 5, "Hamburg": 5, "London": 5, "Lyon": 5, "Madrid": 5, "Milan": 5, "Munich": 5, "Oslo": 5, "Paris": 5, "Prague": 5, "Rome": 5, "Stockholm": 5, "Strasbourg": 5, "Vienna": 5, "Warsaw": 5, "Zagreb": 5, "Zurich": 5},
                 "bandwidth_availability_dict": {"Amsterdam": {"Brussels": 5, "Glasgow": 5, "Hamburg": 5, "London": 5}, "Athens": {"Belgrade": 5, "Rome": 5}, "Barcelona": {"Lyon": 5, "Madrid": 5}, "Belgrade": {"Athens": 5, "Budapest": 5, "Zagreb": 5}, "Berlin": {"Copenhagen": 5, "Hamburg": 5, "Munich": 5, "Prague": 5, "Warsaw": 5}, "Bordeaux": {"Madrid": 5, "Paris": 5}, "Brussels": {"Amsterdam": 5, "Frankfurt": 5, "Paris": 5}, "Budapest": {"Belgrade": 5, "Prague": 5, "Warsaw": 5}, "Copenhagen": {"Berlin": 5, "Oslo": 5}, "Dublin": {"Glasgow": 5, "London": 5}, "Frankfurt": {"Brussels": 5, "Hamburg": 5, "Munich": 5, "Strasbourg": 5}, "Glasgow": {"Amsterdam": 5, "Dublin": 5}, "Hamburg": {"Amsterdam": 5, "Berlin": 5, "Frankfurt": 5}, "London": {"Amsterdam": 5, "Dublin": 5, "Paris": 5}, "Lyon": {"Barcelona": 5, "Paris": 5, "Zurich": 5}, "Madrid": {"Barcelona": 5, "Bordeaux": 5}, "Milan": {"Munich": 5, "Rome": 5, "Zurich": 5}, "Munich": {"Berlin": 5, "Frankfurt": 5, "Milan": 5, "Vienna": 5}, "Oslo": {"Copenhagen": 5, "Stockholm": 5}, "Paris": {"Bordeaux": 5, "Brussels": 5, "London": 5, "Lyon": 5, "Strasbourg": 5}, "Prague": {"Berlin": 5, "Budapest": 5, "Vienna": 5}, "Rome": {"Athens": 5, "Milan": 5, "Zagreb": 5}, "Stockholm": {"Oslo": 5, "Warsaw": 5}, "Strasbourg": {"Frankfurt": 5, "Paris": 5, "Zurich": 5}, "Vienna": {"Munich": 5, "Prague": 5, "Zagreb": 5}, "Warsaw": {"Berlin": 5, "Budapest": 5, "Stockholm": 5}, "Zagreb": {"Belgrade": 5, "Rome": 5, "Vienna": 5}, "Zurich": {"Lyon": 5, "Milan": 5, "Strasbourg": 5}},
 
-                "computing_requirements": {"v1": 2, "v2": 2, "v3": 2, "v4": 2, "v5": 2, "v6": 2, "v7": 2, "v8": 2, "v9": 2, "v10": 2, "v11": 2, "v12": 2},
-                "memory_requirements": {"v1": 2, "v2": 2, "v3": 2, "v4": 2, "v5": 2, "v6": 2, "v7": 2, "v8": 2, "v9": 2, "v10": 2, "v11": 2, "v12": 2},
-                "bandwidth_requirements": [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+                "computing_requirements": {"v1": 2, "v2": 2, "v3": 2, "v4": 2, "v5": 2, "v6": 2, "v7": 2, "v8": 2, "v9": 2, "v10": 2, "v11": 2, "v12": 2, "v1'": 2, "v2'": 2, "v3'": 2, "v4'": 2, "v5'": 2, "v6'": 2, "v7'": 2, "v8'": 2},
+                "memory_requirements": {"v1": 2, "v2": 2, "v3": 2, "v4": 2, "v5": 2, "v6": 2, "v7": 2, "v8": 2, "v9": 2, "v10": 2, "v11": 2, "v12": 2, "v1'": 2, "v2'": 2, "v3'": 2, "v4'": 2, "v5'": 2, "v6'": 2, "v7'": 2, "v8'": 2},
+                "bandwidth_requirements_dict": {"v1": {"v2": 2}, "v2": {"v3": 2}, "v3": {"v4": 2}, "v4": {"v5": 2}, "v5": {"v6": 2}, "v6": {"v7": 2}, "v7": {"v8": 2}, "v8": {"v9": 2}, "v9": {"v10": 2}, "v10": {"v11": 2}, "v11": {"v12": 2}, "v12": {}, 
+                                                "v1'": {"v2'": 2}, "v2'": {"v3'": 2}, "v3'": {"v4'": 2}, "v4'": {"v5'": 2}, "v5'": {"v6'": 2}, "v6'": {"v7'": 2}, "v7'": {"v8'": 2}, "v8'": {}},
 
                 "energy_price": {"Amsterdam": [1, 1, 3, 2, 2, 2, 1, 5, 1, 5], "Athens": [4, 1, 1, 1, 2, 2, 5, 5, 1, 5], "Barcelona": [2, 5, 4, 2, 4, 5, 3, 1, 2, 4], "Belgrade": [3, 3, 2, 2, 3, 1, 1, 4, 1, 3], "Berlin": [3, 5, 3, 1, 4, 5, 1, 4, 1, 5], "Bordeaux": [3, 5, 3, 5, 2, 1, 1, 2, 3, 1], "Brussels": [2, 1, 4, 3, 4, 3, 2, 3, 3, 2], "Budapest": [3, 1, 5, 2, 5, 2, 2, 4, 4, 3], "Copenhagen": [5, 2, 3, 1, 2, 1, 3, 4, 3, 1], "Dublin": [2, 5, 3, 2, 4, 4, 4, 2, 3, 2], "Frankfurt": [2, 5, 5, 3, 5, 4, 5, 4, 3, 2], "Glasgow": [2, 5, 4, 1, 1, 1, 2, 2, 4, 5], "Hamburg": [1, 4, 4, 5, 4, 5, 3, 5, 1, 1], "London": [5, 3, 3, 1, 3, 4, 2, 4, 1, 3], "Lyon": [5, 2, 5, 1, 3, 5, 5, 2, 2, 3], "Madrid": [2, 5, 5, 1, 5, 3, 4, 1, 1, 3], "Milan": [3, 2, 1, 2, 5, 1, 1, 4, 1, 5], "Munich": [2, 2, 4, 5, 2, 3, 5, 5, 4, 2], "Oslo": [5, 2, 3, 4, 3, 4, 5, 4, 1, 2], "Paris": [2, 1, 3, 1, 5, 5, 2, 5, 2, 1], "Prague": [1, 1, 2, 1, 1, 3, 1, 5, 2, 3], "Rome": [4, 2, 5, 2, 5, 5, 4, 2, 4, 4], "Stockholm": [2, 1, 1, 4, 3, 4, 4, 4, 1, 1], "Strasbourg": [1, 4, 3, 1, 2, 2, 2, 5, 4, 2], "Vienna": [4, 2, 3, 4, 2, 1, 4, 5, 1, 1], "Warsaw": [5, 1, 1, 2, 2, 4, 4, 4, 2, 4], "Zagreb": [1, 2, 4, 1, 4, 3, 4, 3, 4, 5], "Zurich": [4, 2, 2, 3, 2, 1, 5, 5, 1, 3]},
 

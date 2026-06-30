@@ -139,6 +139,62 @@ def json_parser(model_name: str, file_name = "test_models.json") -> dict: # same
     raise ValueError(f"Model '{model_name}' does not exist")
 
 
+def generate_virtual_graph(sfc_len=[7], mem_req=2, cpu_req=2, bw_req=2, req=None):
+    # generates the virtual graph and the associated parameters, that are considered all the same first
+    sfcs_num = len(sfc_len)
+    if sfcs_num == 1:
+        virtualGraph = {}
+        for vnf in range(sfc_len[0]):
+            virtualGraph[f"v{vnf+1}"] = [f"v{vnf+2}"]
+        virtualGraph[f"v{vnf+1}"] = []
+        json_entry = '"virtualGraph": ' + json.dumps(virtualGraph) + ',\n'
+
+        # this sets all requirements to the same value if req is used
+        if isinstance(req, int):
+            mem_req = req
+            cpu_req = req
+            bw_req = req 
+        elif req == "random" or "stochastic" or "rand":
+            mem_req = np.random.randint(1, 5)
+            cpu_req = np.random.randint(1, 5)
+            bw_req = np.random.randint(1, 5)
+        
+        computing_req = {}
+        memory_req = {}
+        bandwidth_req = {} 
+        for vnf in virtualGraph.keys():
+            computing_req[vnf] = cpu_req
+            memory_req[vnf] = mem_req
+            bandwidth_req[vnf] = {virtualGraph[vnf][i]: bw_req for i in range(len(virtualGraph[vnf]))}
+        json_entry = json_entry + '"computing_requirements": ' + json.dumps(computing_req) + ',\n' + '"memory_requirements": ' + json.dumps(memory_req) + ',\n' + '"bandwidth_requirements_dict": ' + json.dumps(bandwidth_req) + ',\n'
+        return json_entry
+    else:
+        virtualGraph = {}
+        for sfc in range(sfcs_num):
+            for vnf in range(sfc_len[sfc]):
+                virtualGraph[f"s{sfc+1}v{vnf+1}"] = [f"s{sfc+1}v{vnf+2}"]
+            virtualGraph[f"s{sfc+1}v{vnf+1}"] = []
+        json_entry = '"virtualGraph": ' + json.dumps(virtualGraph) + ',\n'
+
+        # this sets all requirements to the same value if req is used
+        if req:
+            mem_req = req
+            cpu_req = req
+            bw_req = req 
+        
+        computing_req = {}
+        memory_req = {}
+        bandwidth_req = {} 
+        for vnf in virtualGraph.keys():
+            computing_req[vnf] = cpu_req
+            memory_req[vnf] = mem_req
+            bandwidth_req[vnf] = {virtualGraph[vnf][i]: bw_req for i in range(len(virtualGraph[vnf]))}
+        json_entry = json_entry + '"computing_requirements": ' + json.dumps(computing_req) + ',\n' + '"memory_requirements": ' + json.dumps(memory_req) + ',\n' + '"bandwidth_requirements_dict": ' + json.dumps(bandwidth_req) + ',\n'
+        return json_entry
+
+
+
+
 if __name__ == "__main__":
     start = pd.Timestamp("2026-06-25", tz="Europe/Brussels")
     end = pd.Timestamp("2026-06-26", tz="Europe/Brussels")
@@ -147,4 +203,6 @@ if __name__ == "__main__":
     model = json_parser("nobel-eu")
     country_list = list(set(model["node_country"].values()))
 
-    fetch_energy_prices(country_list=country_list, csv_file_name="energy_prices.csv")
+    #fetch_energy_prices(country_list=country_list, csv_file_name="energy_prices.csv")
+
+    print(generate_virtual_graph([7]))
