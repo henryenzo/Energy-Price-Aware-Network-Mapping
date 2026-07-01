@@ -8,9 +8,14 @@
     Created on June 16th, 2026 by Enzo Henry
 """
 
-""" ABOUT THIS BRANCH : myopic model 
-    This is baseline 2 : we consider a time-variying energy price, but we don't consider the migration cost yet. We have W=S=1 so we don't anticipate, we just optimize the mapping at each time step. The model is still a MIP, but we have to solve it at each time step, which is not optimal but it's a first step. We will see later how to add the migration cost and the anticipation of the future energy price (that will be baseline 3).
-    I may call this approach "greedy" as well in the comments but as I've seen in the literature, greedy is more about the algorithm than the model itself, and the correct term is "myopic" ^^
+""" ABOUT THIS BRANCH : predictive model 
+    This is baseline 3 : we consider time-varying parameters, and a migration cost (for now fixed). We will consider W the time window of estimated (deterministic here) parameters, and S the number of time steps on which we will optimize. 
+    Multiple approaches are possible, considering a space-time variable extension could be too complex and cause scalability issues, so maybe we will consider a pool of "migration-candidate" VNFs and only keep the mapping variables for those VNFs, and then we will have to consider a migration cost for each VNF that is migrated from one node to another. 
+
+    other ways to do it : 
+    - relax the integer constraint on the interval [k+S, k+W] so that we can have a continuous variable for the mapping of the VNFs, so the complexity goes from linear to the time window W to logarithmic (I think it was in the chapter 7 of Wolsey's "Integer Programming" book)
+    - warm start the model with the previous mapping allows the optimizer to converge faster and avoid instability (migration cost function will penalize the model for migrating VNFs unnecessarily anyways)
+    - warm start using Machine Learning. Supervised learning to predict the mapping of the VNFs for the next time step, and then use this prediction as a warm start for the optimization model (I need to finish reading Nair et al. 2021 (arXiv:2012.13349v3)). Basically a binary classifier on each VNF. For this I will need a pretty good graph dataset or a good graph generator (in that case I will most certainly use NetworkX as Trung and Michel told me). I'm working on the stochastic engine module to generate all the parameters for the model, this won't take too long imo.
 """
 
 import gurobipy as gp
@@ -102,6 +107,12 @@ class NetworkMapping:
         self.overall_cost = 0
 
         self.verbose = False
+
+        # predictive model
+        self.prev_phi_node = np.array([])   # this init serves no purpose, it will be updated after the first optimization but I need to have an overview
+        self.prev_phi_link = np.array([])   # same for the links
+        self.migration_energy_cost = model["migration_energy_cost"] # clearly this will be a dict v1: cost, v2: cost, ... 
+        self.candidates = [] # list of all candidate VNFs for migration, will be updated after each optimization and classification
     
     def __generate_edges(self, graph="physical"):
         """ generates the edges of the graph obtained by BFS from i1 to last, as a list of 2-lists, each 2-list representing an edge """
@@ -118,7 +129,7 @@ class NetworkMapping:
                         edges.append([vertex, neighbour])
         return edges
 
-    def generate_mapping_variables(self):
+    def generate_variables(self):
         """ generates the mapping variables for the VNFs to physical servers and for the logical links to physical links """
         # Numpy array of binary variables for the mapping of VNFs to physical servers (the only ones we need for now)
         self.phi_node = self.gpmodel.addMVar((len(self.virtual_nodes), len(self.physical_nodes)), vtype=GRB.BINARY, name="phi_nodes")
@@ -126,7 +137,7 @@ class NetworkMapping:
         # node activation variables, sigma_i = 1 if at least one VNF is mapped to node i, 0 otherwise
         self.sigma = self.gpmodel.addMVar((len(self.physical_nodes),), vtype=GRB.BINARY, name="sigma")
         # migration variables, xi_v,i = 1 if VNF v is migrated to node i, 0 otherwise
-        #self.xi = self.gpmodel.addMVar((len(self.virtual_nodes), len(self.physical_nodes)), vtype=GRB.BINARY, name="xi")
+        self.xi = self.gpmodel.addMVar((len(self.virtual_nodes), len(self.physical_nodes)), vtype=GRB.BINARY, name="xi")
 
     def generate_mapping_constraints(self):
         """ generates the mapping constraints on phi_node and phi_link """
@@ -246,6 +257,15 @@ class NetworkMapping:
             for ij in self.physical_links
         )
         return self.Cl
+    
+    def migration_cost(self):
+        self.Cm = gp.quicksum(
+            self.migration_price[v] * self.xi[self.virtual_nodes_index[v], self.physical_nodes_index[i]] * self.prev_phi_node[self.virtual_nodes_index[v], self.physical_nodes_index[j]]  
+            for v in self.candidates
+            for i in self.physical_nodes # for the new node v is mapped to
+            for j in self.physical_nodes # for the previous node v was mapped to
+        )
+        return self.Cm
             
 
     def objective_function(self):
@@ -266,7 +286,7 @@ class NetworkMapping:
             Computes the model by generating the mapping variables, the mapping constraints, the availability constraints, the access nodes constraints and the objective function. \n
             This method must be called before `self.optimize()` in order to compute the model and optimize it. 
         """
-        self.generate_mapping_variables()
+        self.generate_variables()
         self.generate_mapping_constraints()
         self.generate_node_activation_constraints()
         self.generate_availability_constraints()

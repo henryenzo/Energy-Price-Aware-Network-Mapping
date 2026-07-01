@@ -153,7 +153,7 @@ def generate_virtual_graph(sfc_len=[7], mem_req=2, cpu_req=2, bw_req=2, req=None
             mem_req = req
             cpu_req = req
             bw_req = req 
-        elif req == "random" or "stochastic" or "rand":
+        elif req == "random" or req == "stochastic" or req == "rand":
             mem_req = np.random.randint(1, 5)
             cpu_req = np.random.randint(1, 5)
             bw_req = np.random.randint(1, 5)
