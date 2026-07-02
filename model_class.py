@@ -122,7 +122,7 @@ class NetworkMapping:
         """ generates the mapping variables for the VNFs to physical servers and for the logical links to physical links """
         # Numpy array of binary variables for the mapping of VNFs to physical servers (the only ones we need for now)
         self.phi_node = self.gpmodel.addMVar((len(self.virtual_nodes), len(self.physical_nodes)), vtype=GRB.BINARY, name="phi_nodes")
-        self.phi_link = self.gpmodel.addMVar((len(self.logical_links), len(self.edges_P())), vtype=GRB.BINARY, name="phi_link")
+        self.phi_link = self.gpmodel.addMVar((len(self.logical_links), len(self.physical_links)), vtype=GRB.BINARY, name="phi_link")
         # node activation variables, sigma_i = 1 if at least one VNF is mapped to node i, 0 otherwise
         self.sigma = self.gpmodel.addMVar((len(self.physical_nodes),), vtype=GRB.BINARY, name="sigma")
         # migration variables, xi_v,i = 1 if VNF v is migrated to node i, 0 otherwise
@@ -320,7 +320,7 @@ class NetworkMapping:
         self.plot_graph(graph_name=f"physical_graph_k{self.k}")
         self.cost.append(self.gpmodel.ObjVal)
         self.overall_cost += self.gpmodel.ObjVal
-        for k in range(1, min(len(self.energy_price[self.physical_nodes[0]])), self.N): # fail-safe to avoid going out of bounds if the energy price list is shorter than N, maybe will it be better to integrate this directly into the constructor ?
+        for k in range(1, min(len(self.energy_price[self.physical_nodes[0]]), self.N)): # fail-safe to avoid going out of bounds if the energy price list is shorter than N, maybe will it be better to integrate this directly into the constructor ?
             self.update_model()
             self.optimize()
             self.plot_graph(graph_name=f"physical_graph_k{self.k}")
