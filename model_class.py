@@ -8,7 +8,7 @@
     Created on June 16th, 2026 by Enzo Henry
 """
 
-""" ABOUT THIS BRANCH : predictive model 
+""" ABOUT THIS BRANCH : foresighted model 
     This is baseline 3 : we consider time-varying parameters, and a migration cost (for now fixed). We will consider W the time window of estimated (deterministic here) parameters, and S the number of time steps on which we will optimize. 
     Multiple approaches are possible, considering a space-time variable extension could be too complex and cause scalability issues, so maybe we will consider a pool of "migration-candidate" VNFs and only keep the mapping variables for those VNFs, and then we will have to consider a migration cost for each VNF that is migrated from one node to another. 
 
@@ -16,6 +16,9 @@
     - relax the integer constraint on the interval [k+S, k+W] so that we can have a continuous variable for the mapping of the VNFs, so the complexity goes from linear to the time window W to logarithmic (I think it was in the chapter 7 of Wolsey's "Integer Programming" book)
     - warm start the model with the previous mapping allows the optimizer to converge faster and avoid instability (migration cost function will penalize the model for migrating VNFs unnecessarily anyways)
     - warm start using Machine Learning. Supervised learning to predict the mapping of the VNFs for the next time step, and then use this prediction as a warm start for the optimization model (I need to finish reading Nair et al. 2021 (arXiv:2012.13349v3)). Basically a binary classifier on each VNF. For this I will need a pretty good graph dataset or a good graph generator (in that case I will most certainly use NetworkX as Trung and Michel told me). I'm working on the stochastic engine module to generate all the parameters for the model, this won't take too long imo.
+
+    Actually we will do as such : we consider the parameters on a window W of observation and we'll decide on only S=1 time step, so with only one set of variables for the mapping of the VNFs.
+    For that we'll be needing a few additional functions total_window_cost, migration_cost, total_window_constraints, and total_window_objective_function.
 """
 
 import gurobipy as gp
@@ -49,7 +52,7 @@ def json_parser(model_name: str, file_name = "test_models.json") -> dict:
 
 
 class NetworkMapping:
-    def __init__(self, model: dict):
+    def __init__(self, model: dict, time_stride=1):
         """
             Constructor of the class, takes a dict as input containing the model parameters (physGraph, sfc, availability, requirements etc) and initializes the class attributes accordingly. \n
             The model dict is expected to be imported from the json file using the `json_parser` function. \n
@@ -60,6 +63,9 @@ class NetworkMapping:
             ``` \n
         """
         self.N = 10
+        self.W = 5 # time window of observation for the foresighted model
+        self.S = 1 # time steps to optimize for the foresighted model
+
         self.gpmodel = gp.Model("mip1")
         self.optimized_flag = 0
 
@@ -88,10 +94,12 @@ class NetworkMapping:
         # Energy price
         try:
             model_country_list = list(set(model["node_country"].values())) 
-            self.price_per_country  = get_energy_prices_from_csv(csv_file_name="energy_prices.csv", time_slots=self.N,country_list=model_country_list, stride=4)
+            self.price_per_country  = get_energy_prices_from_csv(csv_file_name="energy_prices.csv", time_slots=self.N+self.W,country_list=model_country_list, stride=time_stride)
             
             self.energy_price = {node: list(np.round(np.array(self.price_per_country[country])/100, 2)) for node, country in model["node_country"].items()}
             # division by 100 because the energy price values are too high compared to usage/disposal cost of nodes
+            print(f"Energy prices fetched from ENTSO-E CSV for the countries : {model_country_list}")
+            print(len(self.energy_price[self.physical_nodes[0]]), "time slots fetched for each node") 
         except Exception as e:
             print(f"Could not fetch energy prices from CSV, using default values")
             self.energy_price       = model["energy_price"]                 # dict i1: [price_t1, price_t2, ..., price_tn] 
@@ -111,8 +119,13 @@ class NetworkMapping:
         # predictive model
         self.prev_phi_node = np.array([])   # this init serves no purpose, it will be updated after the first optimization but I need to have an overview
         self.prev_phi_link = np.array([])   # same for the links
+        self.prev_sigma = np.array([])      # same for the node activation variables
+        self.prev_xi = np.array([])         # same for the migration variables
         self.migration_energy_cost = model["migration_energy_cost"] # clearly this will be a dict v1: cost, v2: cost, ... 
-        self.candidates = [] # list of all candidate VNFs for migration, will be updated after each optimization and classification
+
+
+        # self.candidates = [] # list of all candidate VNFs for migration, will be updated after each optimization and classification
+
     
     def __generate_edges(self, graph="physical"):
         """ generates the edges of the graph obtained by BFS from i1 to last, as a list of 2-lists, each 2-list representing an edge """
@@ -133,7 +146,7 @@ class NetworkMapping:
         """ generates the mapping variables for the VNFs to physical servers and for the logical links to physical links """
         # Numpy array of binary variables for the mapping of VNFs to physical servers (the only ones we need for now)
         self.phi_node = self.gpmodel.addMVar((len(self.virtual_nodes), len(self.physical_nodes)), vtype=GRB.BINARY, name="phi_nodes")
-        self.phi_link = self.gpmodel.addMVar((len(self.logical_links), len(self.edges_P())), vtype=GRB.BINARY, name="phi_link")
+        self.phi_link = self.gpmodel.addMVar((len(self.logical_links), len(self.physical_links)), vtype=GRB.BINARY, name="phi_link")
         # node activation variables, sigma_i = 1 if at least one VNF is mapped to node i, 0 otherwise
         self.sigma = self.gpmodel.addMVar((len(self.physical_nodes),), vtype=GRB.BINARY, name="sigma")
         # migration variables, xi_v,i = 1 if VNF v is migrated to node i, 0 otherwise
@@ -210,16 +223,51 @@ class NetworkMapping:
                 if v not in self.access_nodes.keys():
                     self.gpmodel.addConstr(self.phi_node[v_index, self.physical_nodes_index[access_node[1]]] == 0)
 
-    def energy_cost(self): 
+    def generate_migration_constraints(self):
+        """
+            Subsection 3.3 of my paper draft, the migration constraints are as follows : \n
+        """
+        if self.k == 0:
+            return # no migration constraints for the first time slot
+        for v in range(len(self.virtual_nodes)):
+            for i in range(len(self.physical_nodes)):
+                self.gpmodel.addConstr(
+                    self.xi[v, i] >= self.phi_node[v, i] - self.prev_phi_node[v, i]
+                )
+                self.gpmodel.addConstr(
+                    self.xi[v, i] <= 1 - self.prev_phi_node[v, i] 
+                )
+            self.gpmodel.addConstr(
+                gp.quicksum(self.xi[v, i] for i in range(len(self.physical_nodes))) <= 1
+            )
+
+    def total_window_constraints(self):
+        """
+            Generates the constraints for the foresighted model, taking into account the constraints all over the time window W. \n
+            For now since I didn't consider any variation of availability and requirements over time, the constraints are the same as for the myopic model, but they will be different when the time-varying parameters are considered
+
+            needed ? i don't think so anymore
+        """
+        for k in range(self.k, self.k + self.W):
+            self.generate_mapping_constraints() # add a k
+            self.generate_node_activation_constraints() #add a k
+            self.generate_availability_constraints() # same 
+            self.generate_access_nodes_constraints() # ...
+
+    def energy_cost(self, k=None): 
         # depends on k 
+        if k is None:
+            k = self.k
         self.Ce = gp.quicksum(
-            self.energy_price[self.physical_nodes[i]][self.k] * gp.quicksum(
+            self.energy_price[self.physical_nodes[i]][k] * gp.quicksum(
                 self.phi_node[v, i] for v in range(len(self.virtual_nodes))
             ) for i in range(len(self.physical_nodes))
         )
         return self.Ce
     
-    def disposal_cost(self):
+    def disposal_cost(self, k=None):
+        if k is None:
+            k = self.k # but unused fot the moment
         self.Cf = gp.quicksum(
             self.node_disposal_price[self.physical_nodes[i]] * self.sigma[i] for i in range(len(self.physical_nodes))
         )
@@ -259,14 +307,41 @@ class NetworkMapping:
         return self.Cl
     
     def migration_cost(self):
+        """
+            Migration cost for the foresighted model, taking into account the migration of VNFs from one physical server to another. \n
+            Here, I consider the cost to be the sum of the energy on each of the origin AND destination servers, multiplied by the energy price of course
+
+            this could also be fixed just to see but I don't know why it wouldn't work right away\n
+            Quick remark : migration from j to i here, I messed up the indices when I wrote it, will modify later
+        """
         self.Cm = gp.quicksum(
-            self.migration_price[v] * self.xi[self.virtual_nodes_index[v], self.physical_nodes_index[i]] * self.prev_phi_node[self.virtual_nodes_index[v], self.physical_nodes_index[j]]  
+            self.migration_energy_cost[v] * (self.energy_price[i] + self.energy_price[j]) * self.xi[self.virtual_nodes_index[v], self.physical_nodes_index[i]] * self.prev_phi_node[self.virtual_nodes_index[v], self.physical_nodes_index[j]] 
             for v in self.candidates
-            for i in self.physical_nodes # for the new node v is mapped to
-            for j in self.physical_nodes # for the previous node v was mapped to
+            for i in self.physical_nodes # for the destination node
+            for j in self.physical_nodes # for the origin node
         )
         return self.Cm
-            
+
+    def total_window_cost(self):
+        """
+            Total cost over the time window W, for the foresighted model. \n
+            This function will be used to compute the total cost over the time window W, and will be used in the objective function\n
+        """
+        self.total_cost = gp.quicksum(
+            self.energy_cost(k) + self.usage_cost() + self.disposal_cost(k) + self.link_usage_cost()
+            for k in range(self.k, self.k + self.W)
+        )
+        return self.total_cost
+    
+    def total_window_objective_function(self):
+        self.gpmodel.setObjective(self.total_window_cost(), GRB.MINIMIZE)
+    
+    def cost_at_k(self):
+        """
+            Cost at time slot k, used to save the cost at each time slot and display the cumulative cost at the end of the optimization process. \n
+        """
+        cost_k = self.energy_cost() + self.usage_cost() + self.disposal_cost() + self.link_usage_cost()
+        return cost_k.getValue()
 
     def objective_function(self):
         """
@@ -281,6 +356,22 @@ class NetworkMapping:
         """
         self.gpmodel.setObjective(self.energy_cost() + self.usage_cost() + self.disposal_cost() + self.link_usage_cost(), GRB.MINIMIZE)
 
+    def warm_start(self):
+        """
+            Warm start the model with the previous mapping of the VNFs to physical servers and logical links to physical links. \n
+            This method is useful to speed up the optimization process, especially for the foresighted model where we have a time window W of observation and we want to optimize for S time steps. \n
+            The warm start is done by setting the initial values of the mapping variables to the previous values, and setting the initial values of the migration variables to 0 (no migration at the beginning).
+        """
+        if self.prev_phi_node.size > 0:
+            self.phi_node.Start = self.prev_phi_node
+        if self.prev_phi_link.size > 0:
+            self.phi_link.Start = self.prev_phi_link
+        if self.prev_sigma.size > 0:
+            self.sigma.Start = self.prev_sigma
+        if self.prev_xi.size > 0:
+            self.xi.Start = self.prev_xi
+
+    
     def compute_model(self):
         """
             Computes the model by generating the mapping variables, the mapping constraints, the availability constraints, the access nodes constraints and the objective function. \n
@@ -291,7 +382,7 @@ class NetworkMapping:
         self.generate_node_activation_constraints()
         self.generate_availability_constraints()
         self.generate_access_nodes_constraints()
-        self.objective_function()
+        self.total_window_objective_function()  # modified
 
     def update_model(self):
         """
@@ -299,8 +390,13 @@ class NetworkMapping:
             This method allows us to only update what changes temporally, without having to recompute the whole model from scratch. \n
             Basically only the energy price changes in this myopic model
         """
+        self.prev_phi_link = self.phi_link.X.copy()
+        self.prev_phi_node = self.phi_node.X.copy()
+        self.prev_sigma = self.sigma.X.copy()
+        self.prev_xi = self.xi.X.copy()
         self.k += 1
-        self.objective_function()
+        self.total_window_objective_function()
+        self.warm_start()
 
 
     def optimize(self):
@@ -335,17 +431,24 @@ class NetworkMapping:
             Runs the model by computing it and optimizing it for each time slot k.
         """
         # first iteration (k=0)
+        self.gpmodel.Params.OutputFlag = int(self.verbose)
         self.compute_model()
         self.optimize()
         self.plot_graph(graph_name=f"physical_graph_k{self.k}")
-        self.cost.append(self.gpmodel.ObjVal)
-        self.overall_cost += self.gpmodel.ObjVal
-        for k in range(1, min(len(self.energy_price[self.physical_nodes[0]])), self.N): # fail-safe to avoid going out of bounds if the energy price list is shorter than N, maybe will it be better to integrate this directly into the constructor ?
+        cost_k = self.cost_at_k()
+        self.cost.append(cost_k)
+        self.overall_cost += cost_k
+        for k in range(1, min(len(self.energy_price[self.physical_nodes[0]]), self.N)): # fail-safe to avoid going out of bounds if the energy price list is shorter than N, maybe will it be better to integrate this directly into the constructor ?
+            self.gpmodel.Params.OutputFlag = int(self.verbose)
+            print(f"\n\nTime slot k={k} : ")
+            print(f"Hyperparameters : W={self.W}, S={self.S}, N={self.N}")
             self.update_model()
             self.optimize()
             self.plot_graph(graph_name=f"physical_graph_k{self.k}")
-            self.cost.append(self.gpmodel.ObjVal)
-            self.overall_cost += self.gpmodel.ObjVal
+            cost_k = self.cost_at_k()
+            self.cost.append(cost_k)
+            self.overall_cost += cost_k
+            print(f"Cost for time slot k={k}: {cost_k}")
         print(f"Cost for each time slot k: {self.cost}")
         print(f"Overall cost for the whole time horizon: {self.overall_cost}")
 
@@ -410,22 +513,6 @@ class NetworkMapping:
         g.attr(label=f"k={self.k}", labelloc="t", labeljust="l", fontsize="14", fontcolor="black")
         g.render(directory=str(plots_dir), cleanup=True)
 
-    def plot_all_graphs(self, k_values, n_cols=5):
-        # this function was generated by Claude AI to help me plot all the graphs for each time slot k in a grid, and save it as a single image
-        # but I am not satisfied with the result (all_timeslots), as it is barely reeadable and rasterized. Will I need to display them all on the same figure for my paper ?
-        paths = [f"plots/physical_graph_k{k}.png" for k in k_values]
-        images = [Image.open(p) for p in paths]
-        w, h = max(im.width for im in images), max(im.height for im in images)
-        n_rows = math.ceil(len(images) / n_cols)
-
-        grid = Image.new("RGB", (w * n_cols, h * n_rows), "white")
-        for idx, im in enumerate(images):
-            row, col = divmod(idx, n_cols)
-            grid.paste(im, (col * w, row * h))
-
-        grid_path = Path(__file__).resolve().parent / "plots" / "all_timeslots.png"
-        grid.save(grid_path)
-        return grid_path
 
 
 if __name__ == "__main__":
@@ -433,6 +520,6 @@ if __name__ == "__main__":
     model = json_parser("nobel-eu")
     network_mapping = NetworkMapping(model)
     network_mapping.run()
-    print("Physical Links:", network_mapping.physical_links)
-    print("Logical links: ", network_mapping.logical_links)
+    #print("Physical Links:", network_mapping.physical_links)
+    #print("Logical links: ", network_mapping.logical_links)
     # network_mapping.plot_all_graphs(k_values=range(len(network_mapping.energy_price[network_mapping.physical_nodes[0]])), n_cols=5)
