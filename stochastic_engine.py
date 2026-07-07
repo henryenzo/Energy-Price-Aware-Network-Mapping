@@ -4,16 +4,21 @@
 
     It will now also get the energy price from the ENTSO-E transparency platform API, and overall be a module for helper functions
 
+    TODO: random graph generator
+
     Created on June 23rd, 2026 by Enzo Henry
 """
 
 import numpy as np
+import matplotlib.pyplot as plt
 import json
 import requests
 import urllib3
 import pandas as pd
 from entsoe import EntsoePandasClient
 from entsoe.exceptions import NoMatchingDataError
+import networkx as nx
+from sklearn.cluster import KMeans
 
 
 
@@ -139,7 +144,19 @@ def json_parser(model_name: str, file_name = "test_models.json") -> dict: # same
 
 
 def generate_virtual_graph(sfc_len=[7], mem_req=2, cpu_req=2, bw_req=2, req=None):
-    # generates the virtual graph and the associated parameters, that are considered all the same first
+    """
+        Generates a virtual graph and the associated parameters, that are considered all the same first
+        Arguments:
+        - sfc_len: list[int] - list of lengths of each SFC,
+        - mem_req: int - memory requirement for each VNF,
+        - cpu_req: int - CPU requirement for each VNF,
+        - bw_req: int - bandwidth requirement for each VNF,
+        - req: int or str - if an int is provided, it will set all requirements to that value, \n
+                            if "random" is provided it will set all requirements to a random value between 1 and 5, \n
+        
+        Returns: \n
+        str - a json string containing the virtual graph and the associated requirements to copy/paste directly in the json
+    """
     sfcs_num = len(sfc_len)
     if sfcs_num == 1:
         virtualGraph = {}
@@ -191,8 +208,73 @@ def generate_virtual_graph(sfc_len=[7], mem_req=2, cpu_req=2, bw_req=2, req=None
         json_entry = json_entry + '"computing_requirements": ' + json.dumps(computing_req) + ',\n' + '"memory_requirements": ' + json.dumps(memory_req) + ',\n' + '"bandwidth_requirements_dict": ' + json.dumps(bandwidth_req) + ',\n'
         return json_entry
 
+def generate_random_graph(num_nodes, edge_prob=None, viz=True):
+    """
+    Generates a random directed graph represented as an adjacency list.\n
+    Arguments:\n
+    - num_nodes: int - number of nodes in the graph\n
+    - edge_prob: float - probability of an edge existing between any two nodes\n
 
+    Returns:\n
+    a string to copy/paste dirctly in the json file, representing the graph as an adjacency list
+    """
+    if edge_prob is None:
+        edge_prob = 2/num_nodes**1.5  # default edge probability
+    graph = {}
+    for i in range(num_nodes):
+        graph[f"i{i+1}"] = [f"i{j+1}" for j in range(num_nodes) if (j != i and np.random.rand() < edge_prob)] 
 
+    for i in range(num_nodes):
+        if not graph[f"i{i+1}"]:
+            # ensure that each node has at least one outgoing edge
+            j = np.random.choice([j for j in range(num_nodes) if j != i])
+            graph[f"i{i+1}"].append(f"i{j+1}")
+    for i in range(num_nodes):
+        if not any(f"i{i+1}" in graph[f"i{j+1}"] for j in range(num_nodes) if j != i):
+            # ensure that each node has at least one incoming edge
+            j = np.random.choice([j for j in range(num_nodes) if j != i])
+            graph[f"i{j+1}"].append(f"i{i+1}")
+    for i in range(num_nodes):
+        graph[f"i{i+1}"] = list(set(graph[f"i{i+1}"]))  # remove duplicates
+    for i in range(num_nodes):
+        for j in graph[f"i{i+1}"]:
+            if f"i{i+1}" not in graph[j]:
+                graph[j].append(f"i{i+1}")  # ensure bidirectionality
+    graph_str = '"physGraph": ' + json.dumps(graph) + ',\n'
+
+    if viz:
+        quick_visualize(graph)
+    return graph_str
+
+def quick_visualize(graph_dict):
+    """
+    Quick visualization of a graph represented as an adjacency list with networkX (that I should have used to generate random graphs but whatever).\n
+    """
+    G = nx.DiGraph(graph_dict)
+    pos = nx.spring_layout(G)
+    nx.draw(G, pos, with_labels=True, node_color='lightblue', node_size=200, font_size=10, font_weight='bold', arrowsize=20)
+    plt.title("Graph Visualization")
+    plt.show()
+
+def clusterize_graph(graph_dict, countries : list[str] = COUNTRIES.values()):
+    """
+    Clusterizes a graph represented as an adjacency list into subgraphs based on the provided countries.\n
+    The clusterization is done using K-means clustering on the node positions obtained from a spring layout
+    Arguments:\n
+    - graph_dict: dict - adjacency list representation of the graph\n
+    - countries: list[str] - list of country names that will be the clusters,\n
+
+    Returns:\n
+    a string to copy/paste dirctly in the json file, representing node_country as a dict with node names as keys and country names as values
+    """
+    G = nx.DiGraph(graph_dict)
+    pos = nx.spring_layout(G)
+    node_positions = np.array([pos[node] for node in G.nodes()])
+    kmeans = KMeans(n_clusters=len(countries), random_state=0).fit(node_positions)
+    labels = kmeans.labels_
+    node_country = {node: countries[labels[i]] for i, node in enumerate(G.nodes())}
+    return '"node_country": ' + json.dumps(node_country) + ',\n'
+    
 
 if __name__ == "__main__":
     start = pd.Timestamp("2026-06-25", tz="Europe/Brussels")
@@ -205,3 +287,5 @@ if __name__ == "__main__":
     #fetch_energy_prices(country_list=country_list, csv_file_name="energy_prices.csv")
 
     #print(generate_virtual_graph([7]))
+    random_graph = generate_random_graph(50)
+    print(random_graph)

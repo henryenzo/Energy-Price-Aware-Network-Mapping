@@ -14,7 +14,7 @@ def run_simulation(model_name, W, N, time_stride=1):
         This function will run the simulation for a given model and hyperparameters. It will return the overall cost for the whole time horizon.
     """
     model = json_parser(model_name)
-    network_mapping = NetworkMapping(model, W=W, N=N, time_stride=time_stride)
+    network_mapping = NetworkMapping(model, W=W, S=1, N=N, time_stride=time_stride)
     network_mapping.run()
     return network_mapping.overall_cost
 
@@ -27,13 +27,13 @@ def trace_cost_curve_for_different_W(model_name, W_list, N, time_stride=1):
     optim_duration = []
     for W in W_list:
         model = json_parser(model_name)
-        network_mapping = NetworkMapping(model, W=W, N=N, time_stride=time_stride)
+        network_mapping = NetworkMapping(model, W=W, S=1, N=N, time_stride=time_stride)
         start_time = time.time()
         network_mapping.run()
         end_time = time.time()
         cost_curve.append(network_mapping.cost)
         overall_costs.append(network_mapping.overall_cost)
-        optim_duration.append(end_time - start_time)
+        optim_duration.append((end_time - start_time)/N) # average optimization duration per time slot
     
     fig, axes = plt.subplots(2, 2, figsize=(14, 6))
     axes = axes.flatten()
@@ -71,5 +71,5 @@ if __name__ == "__main__":
     model_name = "nobel-eu"
     W_list = [1, 2, 3, 4, 5]
     N = 10
-    time_stride = 1
+    time_stride = 2
     trace_cost_curve_for_different_W(model_name, W_list, N, time_stride)

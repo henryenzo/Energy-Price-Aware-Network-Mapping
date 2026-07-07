@@ -52,7 +52,7 @@ def json_parser(model_name: str, file_name = "test_models.json") -> dict:
 
 
 class NetworkMapping:
-    def __init__(self, model: dict, W: int = 1, N: int = 10, time_stride: int =1):
+    def __init__(self, model: dict, W: int = 1, S: int = 1, N: int = 10, time_stride: int =1):
         """
             Constructor of the class, takes a dict as input containing the model parameters (physGraph, sfc, availability, requirements etc) and initializes the class attributes accordingly. \n
             The model dict is expected to be imported from the json file using the `json_parser` function. \n
@@ -64,7 +64,7 @@ class NetworkMapping:
         """
         self.N = N
         self.W = W # time window of observation for the foresighted model
-        self.S = 1 # time steps to optimize for the foresighted model, we can only set it to one for now, I don't even think a higher value would be useful.
+        self.S = S # time steps to optimize for the foresighted model, we can only set it to one for now, I don't even think a higher value would be useful.
 
         self.gpmodel = gp.Model("mip1")
         self.optimized_flag = 0
