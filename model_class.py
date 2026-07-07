@@ -52,7 +52,7 @@ def json_parser(model_name: str, file_name = "test_models.json") -> dict:
 
 
 class NetworkMapping:
-    def __init__(self, model: dict, time_stride=1):
+    def __init__(self, model: dict, W: int = 1, N: int = 10, time_stride: int =1):
         """
             Constructor of the class, takes a dict as input containing the model parameters (physGraph, sfc, availability, requirements etc) and initializes the class attributes accordingly. \n
             The model dict is expected to be imported from the json file using the `json_parser` function. \n
@@ -62,9 +62,9 @@ class NetworkMapping:
             network_mapping = NetworkMapping(model)
             ``` \n
         """
-        self.N = 10
-        self.W = 5 # time window of observation for the foresighted model
-        self.S = 1 # time steps to optimize for the foresighted model
+        self.N = N
+        self.W = W # time window of observation for the foresighted model
+        self.S = 1 # time steps to optimize for the foresighted model, we can only set it to one for now, I don't even think a higher value would be useful.
 
         self.gpmodel = gp.Model("mip1")
         self.optimized_flag = 0
@@ -122,10 +122,6 @@ class NetworkMapping:
         self.prev_sigma = np.array([])      # same for the node activation variables
         self.prev_xi = np.array([])         # same for the migration variables
         self.migration_energy_cost = model["migration_energy_cost"] # clearly this will be a dict v1: cost, v2: cost, ... 
-
-
-        # self.candidates = [] # list of all candidate VNFs for migration, will be updated after each optimization and classification
-
     
     def __generate_edges(self, graph="physical"):
         """ generates the edges of the graph obtained by BFS from i1 to last, as a list of 2-lists, each 2-list representing an edge """
@@ -229,17 +225,21 @@ class NetworkMapping:
         """
         if self.k == 0:
             return # no migration constraints for the first time slot
+        
+        self.migration_constrs = []
         for v in range(len(self.virtual_nodes)):
             for i in range(len(self.physical_nodes)):
-                self.gpmodel.addConstr(
+                c1 = self.gpmodel.addConstr(
                     self.xi[v, i] >= self.phi_node[v, i] - self.prev_phi_node[v, i]
                 )
-                self.gpmodel.addConstr(
-                    self.xi[v, i] <= 1 - self.prev_phi_node[v, i] 
+                c2 = self.gpmodel.addConstr(
+                    self.xi[v, i] <= 1 - self.prev_phi_node[v, i]
                 )
-            self.gpmodel.addConstr(
+                self.migration_constrs += [c1, c2]
+            c3 = self.gpmodel.addConstr(
                 gp.quicksum(self.xi[v, i] for i in range(len(self.physical_nodes))) <= 1
             )
+            self.migration_constrs.append(c3)
 
     def total_window_constraints(self):
         """
@@ -314,9 +314,15 @@ class NetworkMapping:
             this could also be fixed just to see but I don't know why it wouldn't work right away\n
             Quick remark : migration from j to i here, I messed up the indices when I wrote it, will modify later
         """
+        if self.k == 0:
+            self.Cm = 0
+            return 0 # no migration cost for the first time slot
         self.Cm = gp.quicksum(
-            self.migration_energy_cost[v] * (self.energy_price[i] + self.energy_price[j]) * self.xi[self.virtual_nodes_index[v], self.physical_nodes_index[i]] * self.prev_phi_node[self.virtual_nodes_index[v], self.physical_nodes_index[j]] 
-            for v in self.candidates
+            self.migration_energy_cost[v]
+            * (self.energy_price[i][self.k] + self.energy_price[j][self.k])
+            * self.xi[self.virtual_nodes_index[v], self.physical_nodes_index[i]]
+            * self.prev_phi_node[self.virtual_nodes_index[v], self.physical_nodes_index[j]] 
+            for v in self.virtual_nodes # for each VNF
             for i in self.physical_nodes # for the destination node
             for j in self.physical_nodes # for the origin node
         )
@@ -330,7 +336,7 @@ class NetworkMapping:
         self.total_cost = gp.quicksum(
             self.energy_cost(k) + self.usage_cost() + self.disposal_cost(k) + self.link_usage_cost()
             for k in range(self.k, self.k + self.W)
-        )
+        ) + self.migration_cost()
         return self.total_cost
     
     def total_window_objective_function(self):
@@ -345,6 +351,7 @@ class NetworkMapping:
 
     def objective_function(self):
         """
+            DEPRECATED : use total_window_objective_function instead, this one is for the myopic model only. \n
             Objective function of the problem : $E_{InP} = C_e + C_r + C_f + C_l$
 
             where:
@@ -382,6 +389,7 @@ class NetworkMapping:
         self.generate_node_activation_constraints()
         self.generate_availability_constraints()
         self.generate_access_nodes_constraints()
+        self.generate_migration_constraints()
         self.total_window_objective_function()  # modified
 
     def update_model(self):
@@ -395,6 +403,10 @@ class NetworkMapping:
         self.prev_sigma = self.sigma.X.copy()
         self.prev_xi = self.xi.X.copy()
         self.k += 1
+        if hasattr(self, "migration_constrs"): # constraints cleanup
+            for c in self.migration_constrs:
+                self.gpmodel.remove(c)
+        self.generate_migration_constraints()
         self.total_window_objective_function()
         self.warm_start()
 
