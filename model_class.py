@@ -67,6 +67,8 @@ class NetworkMapping:
         self.S = S # time steps to optimize for the foresighted model, we can only set it to one for now, I don't even think a higher value would be useful.
 
         self.gpmodel = gp.Model("mip1")
+        self.gpmodel.Params.MIPGap = 1e-9
+        self.gpmodel.Params.MIPGapAbs = 1e-12
         self.optimized_flag = 0
 
         self.physGraph = model["physGraph"]
@@ -109,12 +111,17 @@ class NetworkMapping:
         self.bandwidth_usage_price  = model["bandwidth_usage_price"]
         self.node_disposal_price    = model["node_disposal_price"]
 
+        self.links_delay_dict       = model["links_delay_dict"]
+
         # time aspects for the greedy model
         self.k = 0      # maximum is self.N - 1
         self.cost = []
         self.overall_cost = 0
 
         self.verbose = False
+
+        self.max_delay = 400 # s pour l'instant --> aucune contrainte mais on va /1000 ensuite
+        #self.max_delay = model["max_delay"]
 
         # predictive model
         self.prev_phi_node = np.array([])   # this init serves no purpose, it will be updated after the first optimization but I need to have an overview
@@ -241,6 +248,24 @@ class NetworkMapping:
             )
             self.migration_constrs.append(c3)
 
+    def generate_delay_constraints(self):
+        """
+            Generates the constraints on the total delay introduced by the routing of the SFC onto the physical network.\n
+            The formula that I'll use is : $\sum_{vw\in logical_links of s} \sum_{ij\in physical_links} phi_link_{vw:ij} * d_{ij} <= max_delay(s)  forall SFC s$ \n
+            for now, fix delay but then I'll enlarge it to be an SFC parameter. TODO !!!
+            If this constraint isn't verified, the optimizer will cancel the mapping, so TODO make it non destructive
+
+            Any estimation of the delay required for the transmission of a packet based on the distance between nodes will be rough, because it depends on the actual network topology and traffic conditions. We may consider a reasonable and usual value of a 5ms delay per 100km
+        """
+        delay_per_100km = 0.005 # 5ms per 100km
+        self.gpmodel.addConstr(
+            gp.quicksum(
+                self.phi_link[vw_index, ij_index] * self.links_delay_dict[ij[0]][ij[1]]* delay_per_100km 
+                for ij_index, ij in enumerate(self.physical_links)
+                for vw_index, vw in enumerate(self.logical_links)
+            ) <= self.max_delay
+        )
+
     def total_window_constraints(self):
         """
             Generates the constraints for the foresighted model, taking into account the constraints all over the time window W. \n
@@ -253,15 +278,37 @@ class NetworkMapping:
             self.generate_node_activation_constraints() #add a k
             self.generate_availability_constraints() # same 
             self.generate_access_nodes_constraints() # ...
+            self.generate_delay_constraints()
 
     def energy_cost(self, k=None): 
+        """
+            REALISTIC ENERGY COST FUNCTION :\n
+            From the real energy price in Europe, the current CPU load, and considering the servers to use Intel i7 14th gen CPUs, we can estimate the energy cost for each physical server at each time slot k: \n
+            $C_e(k) = \sum_{i\in physical_nodes} energy_price_i(k) * P_i(k)$ \n
+            with:\n
+            $P_i(k) = P_idle + (P_max - P_idle) * CPU_usage_i(k)$ \n
+            $CPU_usage_i(k) = \sum_{v\in VNFs} phi_node_{v,i}(k) * computing_requirement_v / computing_availability_i$ \n
+        """
+        # we used to depend on a parameter from the json but now I use Intel i7 14th gen specifications and CPU usage
         # depends on k 
         if k is None:
             k = self.k
+        # self.Ce = gp.quicksum(
+        #     self.energy_price[self.physical_nodes[i]][k] * gp.quicksum(
+        #         self.phi_node[v, i] for v in range(len(self.virtual_nodes))
+        #     ) for i in range(len(self.physical_nodes))
+        # )
+        Watts_over_15min_to_MWh = 1/1000000 * 900/3600 
+        P_idle = 65 # Watts
+        P_max = 219 # Watts
+        CPU_usage = lambda i: gp.quicksum(
+            self.phi_node[v, i] * self.computing_requirements[self.virtual_nodes[v]] 
+            for v in range(len(self.virtual_nodes))
+        ) / self.computing_availability[self.physical_nodes[i]]
+        Power = lambda i: P_idle + (P_max - P_idle) * CPU_usage(i)
         self.Ce = gp.quicksum(
-            self.energy_price[self.physical_nodes[i]][k] * gp.quicksum(
-                self.phi_node[v, i] for v in range(len(self.virtual_nodes))
-            ) for i in range(len(self.physical_nodes))
+            self.energy_price[self.physical_nodes[i]][k] * Watts_over_15min_to_MWh * Power(i)
+            for i in range(len(self.physical_nodes))
         )
         return self.Ce
     
@@ -294,37 +341,54 @@ class NetworkMapping:
         )
         return self.Cr
     
-    def link_usage_cost(self):
+
+    def link_delay(self):
+        self.total_link_delay = gp.quicksum(
+                self.phi_link[vw_index, ij_index] * self.links_delay_dict[ij[0]][ij[1]] 
+                for ij_index, ij in enumerate(self.physical_links)
+                for vw_index, vw in enumerate(self.logical_links)
+            )
+        return self.total_link_delay
+
+    def link_delay_cost(self, coefficient=0.0000001):
         """
-            I'm not sure about this one yet, in my draft I don't take it into account but it will force the model to take the shortest path for the logical links, which is a good thing I guess.\n
-            We take a fix cost of 0.1 for each link used
+           This will be our fictious cost to reduce delay. This should not appear in the effective cost (effective_cost_at_k) but will be in the objective function to reduce the delay
         """
-        self.Cl = gp.quicksum(
-            0.1 * self.phi_link[v_link, self.physical_link_index[(ij[0], ij[1])]]
-            for v_link in range(len(self.logical_links))
-            for ij in self.physical_links
-        )
+        self.Cl = coefficient * self.link_delay()
+        # return gp.LinExpr(0)
         return self.Cl
     
-    def migration_cost(self):
+    def migration_cost(self, coefficient=0.01):
         """
+            REALISTIC MIGRATION COST FUNCTION :\n
             Migration cost for the foresighted model, taking into account the migration of VNFs from one physical server to another. \n
             Here, I consider the cost to be the sum of the energy on each of the origin AND destination servers, multiplied by the energy price of course
 
-            this could also be fixed just to see but I don't know why it wouldn't work right away\n
-            Quick remark : migration from j to i here, I messed up the indices when I wrote it, will modify later
+            For now, I consider a fix value from Liu2011 which hopefully is still relevant. I use 300J of energy per server to migrate a VNF (with 600MB traffic), and I multiply it by the energy price of the origin and destination servers. \n
         """
+        Joules_to_MWh = 1/1000000 * 900/3600
+        fix_migration_energy = 300 # Joules
         if self.k == 0:
-            self.Cm = 0
-            return 0 # no migration cost for the first time slot
+            self.Cm = gp.LinExpr(0) # no migration cost for the first time slot
+            return self.Cm
+        # self.Cm = gp.quicksum(
+        #     coefficient * self.migration_energy_cost[v]
+        #     * (self.energy_price[i][self.k] + self.energy_price[j][self.k])
+        #     * self.xi[self.virtual_nodes_index[v], self.physical_nodes_index[j]]
+        #     * self.prev_phi_node[self.virtual_nodes_index[v], self.physical_nodes_index[i]] 
+        #     for v in self.virtual_nodes # for each VNF
+        #     for i in self.physical_nodes # for the origin node
+        #     for j in self.physical_nodes # for the destination node
+        # )
+
         self.Cm = gp.quicksum(
-            self.migration_energy_cost[v]
+            coefficient * Joules_to_MWh * fix_migration_energy 
             * (self.energy_price[i][self.k] + self.energy_price[j][self.k])
-            * self.xi[self.virtual_nodes_index[v], self.physical_nodes_index[i]]
-            * self.prev_phi_node[self.virtual_nodes_index[v], self.physical_nodes_index[j]] 
+            * self.xi[self.virtual_nodes_index[v], self.physical_nodes_index[j]]
+            * self.prev_phi_node[self.virtual_nodes_index[v], self.physical_nodes_index[i]]
             for v in self.virtual_nodes # for each VNF
-            for i in self.physical_nodes # for the destination node
-            for j in self.physical_nodes # for the origin node
+            for i in self.physical_nodes # for the origin node
+            for j in self.physical_nodes # for the destination node
         )
         return self.Cm
 
@@ -334,7 +398,8 @@ class NetworkMapping:
             This function will be used to compute the total cost over the time window W, and will be used in the objective function\n
         """
         self.total_cost = gp.quicksum(
-            self.energy_cost(k) + self.usage_cost() + self.disposal_cost(k) + self.link_usage_cost()
+            self.energy_cost(k)  + self.link_delay_cost()/10
+            # + self.usage_cost() + self.disposal_cost(k)
             for k in range(self.k, self.k + self.W)
         ) + self.migration_cost()
         return self.total_cost
@@ -342,12 +407,27 @@ class NetworkMapping:
     def total_window_objective_function(self):
         self.gpmodel.setObjective(self.total_window_cost(), GRB.MINIMIZE)
     
-    def cost_at_k(self):
+    def effective_cost_at_k(self):
         """
             Cost at time slot k, used to save the cost at each time slot and display the cumulative cost at the end of the optimization process. \n
         """
-        cost_k = self.energy_cost() + self.usage_cost() + self.disposal_cost() + self.link_usage_cost()
+        # cost_k = self.energy_cost() + self.usage_cost() + self.disposal_cost() + self.link_delay_cost() + self.migration_cost()
+        cost_k = self.energy_cost() + self.migration_cost() # + self.link_delay_cost()
         return cost_k.getValue()
+    
+    def individual_costs_at_k(self):
+        """
+            Individual effective costs at time slot k, for energy, migration, usage, and disposal, + the delay
+        """
+        cost_k = {
+            "energy_cost": self.energy_cost().getValue(),
+            # "usage_cost": self.usage_cost().getValue(),
+            # "disposal_cost": self.disposal_cost().getValue(),
+            "link_delay": self.link_delay().getValue(),   # coeff =1 so we have the real delay in ms
+            "link_delay_cost": self.link_delay_cost().getValue(),
+            "migration_cost": self.migration_cost().getValue()
+        }
+        return cost_k
 
     def objective_function(self):
         """
@@ -361,7 +441,7 @@ class NetworkMapping:
             - C_l is the link usage cost (this one doesn't appear in my paper, it is to make the model choose the shortest paths). \n
             The objective function is to **minimize** the total cost $E_{InP}$.
         """
-        self.gpmodel.setObjective(self.energy_cost() + self.usage_cost() + self.disposal_cost() + self.link_usage_cost(), GRB.MINIMIZE)
+        self.gpmodel.setObjective(self.energy_cost() + self.usage_cost() + self.disposal_cost() + self.link_delay_cost(), GRB.MINIMIZE)
 
     def warm_start(self):
         """
@@ -447,8 +527,9 @@ class NetworkMapping:
         self.compute_model()
         self.optimize()
         self.plot_graph(graph_name=f"physical_graph_k{self.k}")
-        cost_k = self.cost_at_k()
-        self.cost.append(cost_k)
+        cost_k = self.effective_cost_at_k()
+        individual_costs_k = self.individual_costs_at_k()
+        self.cost.append({"effective_cost": cost_k, **individual_costs_k})
         self.overall_cost += cost_k
         for k in range(1, min(len(self.energy_price[self.physical_nodes[0]]), self.N)): # fail-safe to avoid going out of bounds if the energy price list is shorter than N, maybe will it be better to integrate this directly into the constructor ?
             self.gpmodel.Params.OutputFlag = int(self.verbose)
@@ -457,10 +538,14 @@ class NetworkMapping:
             self.update_model()
             self.optimize()
             self.plot_graph(graph_name=f"physical_graph_k{self.k}")
-            cost_k = self.cost_at_k()
-            self.cost.append(cost_k)
+            cost_k = self.effective_cost_at_k()
+            individual_costs_k = self.individual_costs_at_k()
+            self.cost.append({"effective_cost": cost_k, **individual_costs_k}) # list of dicts, each dict for 1 time slot k
             self.overall_cost += cost_k
             print(f"Cost for time slot k={k}: {cost_k}")
+            print(f"{int(self.gpmodel.NodeCount)} nodes explored in the branch and bound tree")
+            print(f"{int(self.gpmodel.SolCount)} feasible solutions found")
+            print(f"MIP gap: {self.gpmodel.MIPGap} \n")
         print(f"Cost for each time slot k: {self.cost}")
         print(f"Overall cost for the whole time horizon: {self.overall_cost}")
 

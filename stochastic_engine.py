@@ -287,5 +287,7 @@ if __name__ == "__main__":
     #fetch_energy_prices(country_list=country_list, csv_file_name="energy_prices.csv")
 
     #print(generate_virtual_graph([7]))
-    random_graph = generate_random_graph(50)
-    print(random_graph)
+    #random_graph = generate_random_graph(50)
+    #print(random_graph)
+
+    fetch_energy_prices(csv_file_name="energy_prices_today.csv")
