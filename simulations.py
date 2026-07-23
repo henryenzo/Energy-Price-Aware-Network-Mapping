@@ -9,16 +9,16 @@ import time
 
 
 
-def run_simulation(model_name, W, N, time_stride=1):
+def run_simulation(model_name, W, N, time_stride=1, prices_csv="energy_prices.csv"):
     """
         This function will run the simulation for a given model and hyperparameters. It will return the overall cost for the whole time horizon.
     """
     model = json_parser(model_name)
-    network_mapping = NetworkMapping(model, W=W, S=1, N=N, time_stride=time_stride)
+    network_mapping = NetworkMapping(model, W=W, S=1, N=N, time_stride=time_stride, prices_csv=prices_csv)
     network_mapping.run()
     return network_mapping.overall_cost
 
-def trace_cost_curve_for_different_W(model_name, W_list, N, time_stride=1):
+def trace_cost_curve_for_different_W(model_name, W_list, N, time_stride=1, prices_csv="energy_prices.csv"):
     """
         This function will run the simulation for a given model and trace the cost per k for different values of W. It will return a list of costs for each value of W.
     """
@@ -28,7 +28,7 @@ def trace_cost_curve_for_different_W(model_name, W_list, N, time_stride=1):
     delay_curve = []
     for W in W_list:
         model = json_parser(model_name)
-        network_mapping = NetworkMapping(model, W=W, S=1, N=N, time_stride=time_stride)
+        network_mapping = NetworkMapping(model, W=W, S=1, N=N, time_stride=time_stride, prices_csv=prices_csv)
         start_time = time.time()
         network_mapping.run()
         end_time = time.time()
@@ -69,7 +69,7 @@ def trace_cost_curve_for_different_W(model_name, W_list, N, time_stride=1):
     # individual cost components for the last W
     ax3 = axes[2]
     last_W_costs = [cost_curve[-1][k] for k in range(N)]
-    for cost_component in ["energy_cost", "usage_cost", "disposal_cost", "link_delay_cost", "migration_cost"]:
+    for cost_component in ["energy_cost",  "link_delay_cost", "migration_cost"]: #"usage_cost", "disposal_cost",
         try:
             component_costs = [network_mapping.cost[k][cost_component] for k in range(N)]
             ax3.plot(range(len(component_costs)), component_costs, label=cost_component)
@@ -100,9 +100,10 @@ def trace_cost_curve_for_different_W(model_name, W_list, N, time_stride=1):
 
 if __name__ == "__main__":
     model_name = "nobel-eu"
-    W_list = [1, 2, 3, 4, 5]
-    N = 10
+    W_list = [0, 1, 2, 3, 4, 5]
+    N = 24
     time_stride = 2
-    trace_cost_curve_for_different_W(model_name, W_list, N, time_stride)
+    prices_csv = "energy_prices_today.csv"
+    trace_cost_curve_for_different_W(model_name, W_list, N, time_stride, prices_csv)
 
-    #run_simulation(model_name, W=3, N=N, time_stride=time_stride)
+    #run_simulation(model_name, W=3, N=N, time_stride=time_stride, prices_csv=prices_csv)

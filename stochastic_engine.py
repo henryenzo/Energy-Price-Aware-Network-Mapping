@@ -119,7 +119,7 @@ def get_energy_prices_from_csv(csv_file_name="energy_prices.csv", time_slots=10,
     prices_dict = {}
     for code in country_list:
         assert code in df.columns, f"Column {code} not found"
-        assert time_slots <= len(df)/4, f"Requested {time_slots} time slots, but only {len(df)/4} available"
+        assert time_slots <= len(df)/stride, f"Requested {time_slots} time slots, but only {len(df)/stride} available"
         prices_dict[code] = df[code].iloc[::stride][:time_slots].tolist()
     
     return prices_dict
@@ -290,4 +290,4 @@ if __name__ == "__main__":
     #random_graph = generate_random_graph(50)
     #print(random_graph)
 
-    fetch_energy_prices(csv_file_name="energy_prices_today.csv")
+    fetch_energy_prices(csv_file_name="energy_prices_today.csv", country_list=country_list)

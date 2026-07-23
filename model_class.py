@@ -5,6 +5,12 @@
 
     TODO : I have a question relative to the flow conservation constraint. Is it really a sum over each j like in Trung's paper "Accelerating Network Slice Embedding..." or only the neighbours ? I considered only the neighbors here because it doesn't make any sense to map logical links to non-existing physical links, but maybe the variable has a hidden role.
 
+    TODO : multiple SFCs to implement everywhere maybe, for now it's only on the delay constraint. 
+
+    TODO : maybe adapt the prediction window thig to give more importance to early gains, like a discount factor. Because one of the main problems we observe is the fact that W=5 is not always the most efficient because what is optimized is a mean value for the whole window. If another migration is to be done, basically the gain that we were supposed to have is lost because we just changed the placement of the VNFs. So maybe we can consider a discount factor for the future costs, like a geometric series with a discount factor of 0.9 or 0.8, so that the optimizer will prefer to have a lower cost at the beginning of the window rather than at the end.
+
+    TODO : find a better day to conduct the tests, and a larger spectrum too have sometimes where migration is worth and some where it's absolutely not. 
+
     Created on June 16th, 2026 by Enzo Henry
 """
 
@@ -52,7 +58,7 @@ def json_parser(model_name: str, file_name = "test_models.json") -> dict:
 
 
 class NetworkMapping:
-    def __init__(self, model: dict, W: int = 1, S: int = 1, N: int = 10, time_stride: int =1):
+    def __init__(self, model: dict, W: int = 1, S: int = 1, N: int = 10, time_stride: int =1, prices_csv: str = "energy_prices.csv"):
         """
             Constructor of the class, takes a dict as input containing the model parameters (physGraph, sfc, availability, requirements etc) and initializes the class attributes accordingly. \n
             The model dict is expected to be imported from the json file using the `json_parser` function. \n
@@ -96,7 +102,7 @@ class NetworkMapping:
         # Energy price
         try:
             model_country_list = list(set(model["node_country"].values())) 
-            self.price_per_country  = get_energy_prices_from_csv(csv_file_name="energy_prices.csv", time_slots=self.N+self.W,country_list=model_country_list, stride=time_stride)
+            self.price_per_country  = get_energy_prices_from_csv(csv_file_name=prices_csv, time_slots=self.N+self.W,country_list=model_country_list, stride=time_stride)
             
             self.energy_price = {node: list(np.round(np.array(self.price_per_country[country])/100, 2)) for node, country in model["node_country"].items()}
             # division by 100 because the energy price values are too high compared to usage/disposal cost of nodes
@@ -111,7 +117,7 @@ class NetworkMapping:
         self.bandwidth_usage_price  = model["bandwidth_usage_price"]
         self.node_disposal_price    = model["node_disposal_price"]
 
-        self.links_delay_dict       = model["links_delay_dict"]
+        self.links_distance_dict    = model["links_distance_dict"]   # in hundreds of km
 
         # time aspects for the greedy model
         self.k = 0      # maximum is self.N - 1
@@ -129,6 +135,19 @@ class NetworkMapping:
         self.prev_sigma = np.array([])      # same for the node activation variables
         self.prev_xi = np.array([])         # same for the migration variables
         self.migration_energy_cost = model["migration_energy_cost"] # clearly this will be a dict v1: cost, v2: cost, ... 
+
+
+        # if we have multiple SFCs
+        # (still in development)
+        if isinstance(self.virtualGraph, list):
+            self.virtual_nodes = []
+            self.logical_links = []
+            for sfc in self.virtualGraph:
+                self.virtual_nodes += list(sfc.keys())
+                self.logical_links += self.__generate_edges("virtual")
+            self.virtual_nodes_index = {node: idx for idx, node in enumerate(self.virtual_nodes)}
+            self.logical_links_index = {tuple(edge): idx for idx, edge in enumerate(self.logical_links)}
+        
     
     def __generate_edges(self, graph="physical"):
         """ generates the edges of the graph obtained by BFS from i1 to last, as a list of 2-lists, each 2-list representing an edge """
@@ -255,16 +274,31 @@ class NetworkMapping:
             for now, fix delay but then I'll enlarge it to be an SFC parameter. TODO !!!
             If this constraint isn't verified, the optimizer will cancel the mapping, so TODO make it non destructive
 
-            Any estimation of the delay required for the transmission of a packet based on the distance between nodes will be rough, because it depends on the actual network topology and traffic conditions. We may consider a reasonable and usual value of a 5ms delay per 100km
+            Any estimation of the delay required for the transmission of a packet based on the distance between nodes will be rough, because it depends on the actual network topology and traffic conditions. We may consider a reasonable and usual value of a 0.5ms delay per 100km of otpical fiber + 2ms of switch per hop + more if hosting a VNF
         """
-        delay_per_100km = 0.005 # 5ms per 100km
-        self.gpmodel.addConstr(
-            gp.quicksum(
-                self.phi_link[vw_index, ij_index] * self.links_delay_dict[ij[0]][ij[1]]* delay_per_100km 
-                for ij_index, ij in enumerate(self.physical_links)
-                for vw_index, vw in enumerate(self.logical_links)
-            ) <= self.max_delay
-        )
+        delay_per_100km = 0.0005 # 0.5ms per 100km of optical fiber
+        delay_per_hop = 0.002 # 2ms per hop (switching delay)
+        delay_per_VNF = 0.001 # 1ms per VNF hosting (processing delay, idk if it's realistic)
+
+        if isinstance(self.virtualGraph, list): #if we differenciate SFCs
+            for sfc in self.virtualGraph:
+                self.gpmodel.addConstr(
+                    gp.quicksum(
+                        self.phi_link[self.logical_links_index[(v, w)], ij_index] * self.links_distance_dict[ij[0]][ij[1]] * delay_per_100km
+                        for ij_index, ij in enumerate(self.physical_links)
+                        for v, w in sfc.items()
+                    ) <= self.max_delay
+                )
+        else:
+            self.gpmodel.addConstr(
+                gp.quicksum(
+                    self.phi_link[vw_index, ij_index] * self.links_distance_dict[ij[0]][ij[1]] * delay_per_100km
+                    + self.phi_link[vw_index, ij_index] * delay_per_hop # corresponds to the switching delay at the physical nodes
+                    + self.phi_node[vw_index, ij_index] * delay_per_VNF
+                    for ij_index, ij in enumerate(self.physical_links)
+                    for vw_index, vw in enumerate(self.logical_links)
+                ) <= self.max_delay
+            )
 
     def total_window_constraints(self):
         """
@@ -341,10 +375,16 @@ class NetworkMapping:
         )
         return self.Cr
     
-
     def link_delay(self):
+        delay_per_100km = 0.0005 # 0.5ms per 100km of optical fiber
+        delay_per_hop = 0.001 # 1ms per hop (switching delay)
+        delay_per_VNF = 0.002 # 2ms per VNF hosting (processing delay, idk if it's realistic)
         self.total_link_delay = gp.quicksum(
-                self.phi_link[vw_index, ij_index] * self.links_delay_dict[ij[0]][ij[1]] 
+                self.phi_link[vw_index, ij_index] * (
+                    self.links_distance_dict[ij[0]][ij[1]] * delay_per_100km
+                    + delay_per_hop # corresponds to the switching delay at the physical nodes
+                    + self.phi_node[self.virtual_nodes_index[vw[0]], self.physical_nodes_index[ij[0]]] * delay_per_VNF
+                )
                 for ij_index, ij in enumerate(self.physical_links)
                 for vw_index, vw in enumerate(self.logical_links)
             )
@@ -353,6 +393,7 @@ class NetworkMapping:
     def link_delay_cost(self, coefficient=0.0000001):
         """
            This will be our fictious cost to reduce delay. This should not appear in the effective cost (effective_cost_at_k) but will be in the objective function to reduce the delay
+           It is supposed to be negligible compared to the other costs, but it will be used to make the optimizer choose the shortest paths for the logical links, and thus simplify the final graph (many path are available). \n
         """
         self.Cl = coefficient * self.link_delay()
         # return gp.LinExpr(0)
@@ -371,15 +412,6 @@ class NetworkMapping:
         if self.k == 0:
             self.Cm = gp.LinExpr(0) # no migration cost for the first time slot
             return self.Cm
-        # self.Cm = gp.quicksum(
-        #     coefficient * self.migration_energy_cost[v]
-        #     * (self.energy_price[i][self.k] + self.energy_price[j][self.k])
-        #     * self.xi[self.virtual_nodes_index[v], self.physical_nodes_index[j]]
-        #     * self.prev_phi_node[self.virtual_nodes_index[v], self.physical_nodes_index[i]] 
-        #     for v in self.virtual_nodes # for each VNF
-        #     for i in self.physical_nodes # for the origin node
-        #     for j in self.physical_nodes # for the destination node
-        # )
 
         self.Cm = gp.quicksum(
             coefficient * Joules_to_MWh * fix_migration_energy 
@@ -398,7 +430,7 @@ class NetworkMapping:
             This function will be used to compute the total cost over the time window W, and will be used in the objective function\n
         """
         self.total_cost = gp.quicksum(
-            self.energy_cost(k)  + self.link_delay_cost()/10
+            self.energy_cost(k)  + self.link_delay_cost()
             # + self.usage_cost() + self.disposal_cost(k)
             for k in range(self.k, self.k + self.W)
         ) + self.migration_cost()
@@ -411,14 +443,24 @@ class NetworkMapping:
         """
             Cost at time slot k, used to save the cost at each time slot and display the cumulative cost at the end of the optimization process. \n
         """
+        if self.W == 0: # no migration cost
+            return self.energy_cost().getValue() + self.link_delay_cost().getValue() 
+        
         # cost_k = self.energy_cost() + self.usage_cost() + self.disposal_cost() + self.link_delay_cost() + self.migration_cost()
-        cost_k = self.energy_cost() + self.migration_cost() # + self.link_delay_cost()
+        cost_k = self.energy_cost() + self.migration_cost()  + self.link_delay_cost()
         return cost_k.getValue()
     
     def individual_costs_at_k(self):
         """
             Individual effective costs at time slot k, for energy, migration, usage, and disposal, + the delay
         """
+        if self.W == 0: # no migration cost 
+            return {
+                "energy_cost": self.energy_cost().getValue(),
+                "link_delay": self.link_delay().getValue(),
+                "link_delay_cost": self.link_delay_cost().getValue()
+            }
+
         cost_k = {
             "energy_cost": self.energy_cost().getValue(),
             # "usage_cost": self.usage_cost().getValue(),
@@ -522,6 +564,11 @@ class NetworkMapping:
         """
             Runs the model by computing it and optimizing it for each time slot k.
         """
+        if self.W == 0:
+            print("W=0 => running without migration, only optimizing for the current time slot k=0")
+            self.run_nomig()
+            return
+        
         # first iteration (k=0)
         self.gpmodel.Params.OutputFlag = int(self.verbose)
         self.compute_model()
@@ -549,6 +596,26 @@ class NetworkMapping:
         print(f"Cost for each time slot k: {self.cost}")
         print(f"Overall cost for the whole time horizon: {self.overall_cost}")
 
+    def run_nomig(self):
+        """
+            Runs the model without migration, only optimizing for the current time slot k=0. \n
+            This is triggered when W=0, to compare the results with migration so we can conclude on the benefits of VNF migration. \n
+        """
+        self.gpmodel.Params.OutputFlag = int(self.verbose)
+        self.compute_model()
+        self.optimize()
+        cost_k = self.effective_cost_at_k()
+        individual_costs_k = self.individual_costs_at_k()
+        self.cost.append({"effective_cost": cost_k, **individual_costs_k})
+        self.overall_cost += cost_k
+        for k in range(1, min(len(self.energy_price[self.physical_nodes[0]]), self.N)):
+            self.k += 1
+            cost_k = self.effective_cost_at_k()
+            individual_costs_k = self.individual_costs_at_k()
+            self.cost.append({"effective_cost": cost_k, **individual_costs_k})
+            self.overall_cost += cost_k
+        print(f"Cost for each time slot k: {self.cost}")
+        print(f"Overall cost for the whole time horizon: {self.overall_cost}")
     
     def plot_graph(self, graph_name="physical_graph"):
         """ 
