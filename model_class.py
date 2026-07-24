@@ -14,17 +14,15 @@
     Created on June 16th, 2026 by Enzo Henry
 """
 
-""" ABOUT THIS BRANCH : foresighted model 
-    This is baseline 3 : we consider time-varying parameters, and a migration cost (for now fixed). We will consider W the time window of estimated (deterministic here) parameters, and S the number of time steps on which we will optimize. 
-    Multiple approaches are possible, considering a space-time variable extension could be too complex and cause scalability issues, so maybe we will consider a pool of "migration-candidate" VNFs and only keep the mapping variables for those VNFs, and then we will have to consider a migration cost for each VNF that is migrated from one node to another. 
+""" ABOUT THIS BRANCH : int-relaxation model 
+    This branch is a test branch to implement the integer relaxation model, where the binary variables after k_0+S are relaxed to be continuous variables between 0 and 1. This is to test if the foresighted model can be improved by relaxing the binary constraints on the future time slots, and thus allowing the optimizer to have more flexibility in the future. The idea is that the optimizer will be able to find a better solution for the current time slot, knowing that it will have more flexibility in the future. 
 
-    other ways to do it : 
-    - relax the integer constraint on the interval [k+S, k+W] so that we can have a continuous variable for the mapping of the VNFs, so the complexity goes from linear to the time window W to logarithmic (I think it was in the chapter 7 of Wolsey's "Integer Programming" book)
-    - warm start the model with the previous mapping allows the optimizer to converge faster and avoid instability (migration cost function will penalize the model for migrating VNFs unnecessarily anyways)
-    - warm start using Machine Learning. Supervised learning to predict the mapping of the VNFs for the next time step, and then use this prediction as a warm start for the optimization model (I need to finish reading Nair et al. 2021 (arXiv:2012.13349v3)). Basically a binary classifier on each VNF. For this I will need a pretty good graph dataset or a good graph generator (in that case I will most certainly use NetworkX as Trung and Michel told me). I'm working on the stochastic engine module to generate all the parameters for the model, this won't take too long imo.
-
-    Actually we will do as such : we consider the parameters on a window W of observation and we'll decide on only S=1 time step, so with only one set of variables for the mapping of the VNFs.
-    For that we'll be needing a few additional functions total_window_cost, migration_cost, total_window_constraints, and total_window_objective_function.
+    I still probably need to create 3-dimensional variables for the future time slots, declared as continuous variables. Constraints will be the same as for the binary variables, but the optimizer will be able to choose any value between 0 and 1 for the future time slots.
+    What will change:
+    - new set of variables future_phi_node, future_phi_link, future_sigma, future_xi
+    - updated constraints for the future time slots
+    - updated objective function to take into account the future costs, with a discount factor for the future costs
+    TODO : implement the integer relaxation model, and test it with different values of W and with S=1, and compare the results with the myopic model and the foresighted model.
 """
 
 import gurobipy as gp
@@ -174,6 +172,12 @@ class NetworkMapping:
         # migration variables, xi_v,i = 1 if VNF v is migrated to node i, 0 otherwise
         self.xi = self.gpmodel.addMVar((len(self.virtual_nodes), len(self.physical_nodes)), vtype=GRB.BINARY, name="xi")
 
+        # Future variables for the foresighted model
+        self.future_phi_node = self.gpmodel.addMVar((self.W-1, len(self.virtual_nodes), len(self.physical_nodes)), vtype=GRB.CONTINUOUS, name="future_phi_nodes")
+        self.future_phi_link = self.gpmodel.addMVar((self.W-1, len(self.logical_links), len(self.physical_links)), vtype=GRB.CONTINUOUS, name="future_phi_link")
+        self.future_sigma = self.gpmodel.addMVar((self.W-1, len(self.physical_nodes)), vtype=GRB.CONTINUOUS, name="future_sigma")
+        self.future_xi = self.gpmodel.addMVar((self.W-1, len(self.virtual_nodes), len(self.physical_nodes)), vtype=GRB.CONTINUOUS, name="future_xi")
+
     def generate_mapping_constraints(self):
         """ generates the mapping constraints on phi_node and phi_link """
         # Each VNF must be mapped to exactly one physical server
@@ -181,6 +185,12 @@ class NetworkMapping:
             self.gpmodel.addConstr(
                 gp.quicksum(self.phi_node[v, i] for i in range(len(self.physical_nodes))) == 1
             )
+        for k in range(self.W-1):
+            for v in range(len(self.virtual_nodes)):
+                self.gpmodel.addConstr(
+                    gp.quicksum(self.future_phi_node[k, v, i] for i in range(len(self.physical_nodes))) == 1
+                )
+        
         # Flow conservation constraints for the logical links 
         for i_index, i in enumerate(self.physical_nodes):
             for vlink_index, (v, w) in enumerate(self.logical_links):
@@ -192,6 +202,19 @@ class NetworkMapping:
                     )
                     == self.phi_node[self.virtual_nodes_index[v], i_index] - self.phi_node[self.virtual_nodes_index[w], i_index]                
                 )
+        for k in range(self.W-1):
+            for i_index, i in enumerate(self.physical_nodes):
+                for vlink_index, (v, w) in enumerate(self.logical_links):
+                    self.gpmodel.addConstr(
+                        gp.quicksum(
+                            self.future_phi_link[k, vlink_index, self.physical_link_index[(i, j)]] 
+                            - self.future_phi_link[k, vlink_index, self.physical_link_index[(j, i)]] 
+                            for j_index, j in enumerate(self.physGraph[i])
+                        )
+                        == self.future_phi_node[k, self.virtual_nodes_index[v], i_index] - self.future_phi_node[k, self.virtual_nodes_index[w], i_index]                
+                    )
+
+    
     
     def generate_node_activation_constraints(self):
         # sigma_i = 1 if at least one VNF is mapped to node i, 0 otherwise
@@ -201,6 +224,12 @@ class NetworkMapping:
                 self.sigma[i_index],
                 [self.phi_node[v, i_index] for v in range(len(self.virtual_nodes))]
             )
+        for k in range(self.W-1):
+            for i_index in range(len(self.physical_nodes)):
+                self.gpmodel.addGenConstrOr(        
+                    self.future_sigma[k, i_index],
+                    [self.future_phi_node[k, v, i_index] for v in range(len(self.virtual_nodes))]
+                )
 
     def generate_availability_constraints(self):
         # Availability constraints for the physical servers only, access nodes excluded in the range
@@ -220,6 +249,23 @@ class NetworkMapping:
                             for v_index, v in enumerate(self.virtual_nodes)
                     ) <=  self.memory_availability[self.physical_nodes[i_index]]
                 )
+        for k in range(self.W-1):
+            for i_index, i in enumerate(self.physical_nodes):
+                if i not in self.access_nodes: # just erase this line to apply the constraints to access nodes as well
+                    # In terms of computing resource
+                    self.gpmodel.addConstr(
+                        gp.quicksum(
+                            self.future_phi_node[k, v_index, i_index] * self.computing_requirements[v] 
+                                for v_index, v in enumerate(self.virtual_nodes)
+                        ) <=  self.computing_availability[self.physical_nodes[i_index]]
+                    )
+                    # In terms of memory resource
+                    self.gpmodel.addConstr(
+                        gp.quicksum(
+                            self.future_phi_node[k, v_index, i_index] * self.memory_requirements[v] 
+                                for v_index, v in enumerate(self.virtual_nodes)
+                        ) <=  self.memory_availability[self.physical_nodes[i_index]]
+                    )
 
         # And in terms of bandwidth usage
         for i, j in self.physical_links:
@@ -229,6 +275,14 @@ class NetworkMapping:
                         for vlink_index, (v,w) in enumerate(self.logical_links)
                 ) <= self.bandwidth_availability[self.physical_link_index[(i, j)]]
             )
+        for k in range(self.W-1):
+            for i, j in self.physical_links:
+                self.gpmodel.addConstr(
+                    gp.quicksum(
+                        self.future_phi_link[k, vlink_index, self.physical_link_index[(i, j)]] * self.bandwidth_requirement[vlink_index] 
+                            for vlink_index, (v,w) in enumerate(self.logical_links)
+                    ) <= self.bandwidth_availability[self.physical_link_index[(i, j)]]
+                )
 
     def generate_access_nodes_constraints(self):
         # First VNF must be mapped to the first access node and the last VNF must be mapped to the last access node 
@@ -244,6 +298,19 @@ class NetworkMapping:
             for v_index, v in enumerate(self.virtual_nodes):
                 if v not in self.access_nodes.keys():
                     self.gpmodel.addConstr(self.phi_node[v_index, self.physical_nodes_index[access_node[1]]] == 0)
+        for k in range(self.W-1):
+            for access_node in self.access_nodes.items():
+                # First VNF must be mapped to the first access node and the last VNF must be mapped to the last access node 
+                self.gpmodel.addConstr( 
+                    self.future_phi_node[k, 
+                        self.virtual_nodes_index[access_node[0]], 
+                        self.physical_nodes_index[access_node[1]]
+                    ] == 1
+                )
+                # and only those two VNFs can be mapped to the access nodes
+                for v_index, v in enumerate(self.virtual_nodes):
+                    if v not in self.access_nodes.keys():
+                        self.gpmodel.addConstr(self.future_phi_node[k, v_index, self.physical_nodes_index[access_node[1]]] == 0)
 
     def generate_migration_constraints(self):
         """
@@ -299,6 +366,16 @@ class NetworkMapping:
                     for vw_index, vw in enumerate(self.logical_links)
                 ) <= self.max_delay
             )
+            for k in range(self.W-1):
+                self.gpmodel.addConstr(
+                    gp.quicksum(
+                        self.future_phi_link[k, vw_index, ij_index] * self.links_distance_dict[ij[0]][ij[1]] * delay_per_100km
+                        + self.future_phi_link[k, vw_index, ij_index] * delay_per_hop # corresponds to the switching delay at the physical nodes
+                        + self.future_phi_node[k, vw_index, ij_index] * delay_per_VNF
+                        for ij_index, ij in enumerate(self.physical_links)
+                        for vw_index, vw in enumerate(self.logical_links)
+                    ) <= self.max_delay
+                )
 
     def total_window_constraints(self):
         """
