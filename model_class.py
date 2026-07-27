@@ -72,9 +72,10 @@ class NetworkMapping:
         self.W = W # time window of observation for the foresighted model
         self.S = S # time steps to optimize for the foresighted model, we can only set it to one for now, I don't even think a higher value would be useful.
 
+        # Gurobi model hyperparameters
         self.gpmodel = gp.Model("mip1")
-        self.gpmodel.Params.MIPGap = 1e-9
-        self.gpmodel.Params.MIPGapAbs = 1e-12
+        #self.gpmodel.Params.MIPGap = 1e-9          # too restrictive
+        #self.gpmodel.Params.MIPGapAbs = 1e-12      # too restrictive
         self.optimized_flag = 0
 
         self.physGraph = model["physGraph"]
@@ -104,8 +105,8 @@ class NetworkMapping:
             model_country_list = list(set(model["node_country"].values())) 
             self.price_per_country  = get_energy_prices_from_csv(csv_file_name=prices_csv, time_slots=self.N+self.W,country_list=model_country_list, stride=time_stride)
             
-            self.energy_price = {node: list(np.round(np.array(self.price_per_country[country])/100, 2)) for node, country in model["node_country"].items()}
-            # division by 100 because the energy price values are too high compared to usage/disposal cost of nodes
+            self.energy_price = {node: list(np.array(self.price_per_country[country])) for node, country in model["node_country"].items()}
+            # division by 100 --> deleted now, shouldn't have lasted that long
             print(f"Energy prices fetched from ENTSO-E CSV for the countries : {model_country_list}")
             print(len(self.energy_price[self.physical_nodes[0]]), "time slots fetched for each node") 
         except Exception as e:
@@ -126,7 +127,7 @@ class NetworkMapping:
 
         self.verbose = False
 
-        self.max_delay = 400 # s pour l'instant --> aucune contrainte mais on va /1000 ensuite
+        self.max_delay = 400 # s for now --> no constraint for the moment but we will /1000 afterwards
         #self.max_delay = model["max_delay"]
 
         # predictive model
@@ -277,8 +278,8 @@ class NetworkMapping:
             Any estimation of the delay required for the transmission of a packet based on the distance between nodes will be rough, because it depends on the actual network topology and traffic conditions. We may consider a reasonable and usual value of a 0.5ms delay per 100km of otpical fiber + 2ms of switch per hop + more if hosting a VNF
         """
         delay_per_100km = 0.0005 # 0.5ms per 100km of optical fiber
-        delay_per_hop = 0.002 # 2ms per hop (switching delay)
-        delay_per_VNF = 0.001 # 1ms per VNF hosting (processing delay, idk if it's realistic)
+        delay_per_hop = 0.001 # 1ms per hop (switching delay)
+        delay_per_VNF = 0.002 # 2ms per VNF hosting (processing delay, idk if it's realistic)
 
         if isinstance(self.virtualGraph, list): #if we differenciate SFCs
             for sfc in self.virtualGraph:
@@ -294,25 +295,11 @@ class NetworkMapping:
                 gp.quicksum(
                     self.phi_link[vw_index, ij_index] * self.links_distance_dict[ij[0]][ij[1]] * delay_per_100km
                     + self.phi_link[vw_index, ij_index] * delay_per_hop # corresponds to the switching delay at the physical nodes
-                    + self.phi_node[vw_index, ij_index] * delay_per_VNF
+                    + self.phi_node[self.virtual_nodes_index[vw[1]], self.physical_nodes_index[ij[1]]] * delay_per_VNF
                     for ij_index, ij in enumerate(self.physical_links)
                     for vw_index, vw in enumerate(self.logical_links)
                 ) <= self.max_delay
             )
-
-    def total_window_constraints(self):
-        """
-            Generates the constraints for the foresighted model, taking into account the constraints all over the time window W. \n
-            For now since I didn't consider any variation of availability and requirements over time, the constraints are the same as for the myopic model, but they will be different when the time-varying parameters are considered
-
-            needed ? i don't think so anymore
-        """
-        for k in range(self.k, self.k + self.W):
-            self.generate_mapping_constraints() # add a k
-            self.generate_node_activation_constraints() #add a k
-            self.generate_availability_constraints() # same 
-            self.generate_access_nodes_constraints() # ...
-            self.generate_delay_constraints()
 
     def energy_cost(self, k=None): 
         """
@@ -343,7 +330,7 @@ class NetworkMapping:
         self.Ce = gp.quicksum(
             self.energy_price[self.physical_nodes[i]][k] * Watts_over_15min_to_MWh * Power(i)
             for i in range(len(self.physical_nodes))
-        )
+        ) 
         return self.Ce
     
     def disposal_cost(self, k=None):
@@ -399,7 +386,7 @@ class NetworkMapping:
         # return gp.LinExpr(0)
         return self.Cl
     
-    def migration_cost(self, coefficient=0.01):
+    def migration_cost(self, coefficient=1):
         """
             REALISTIC MIGRATION COST FUNCTION :\n
             Migration cost for the foresighted model, taking into account the migration of VNFs from one physical server to another. \n
@@ -408,6 +395,8 @@ class NetworkMapping:
             For now, I consider a fix value from Liu2011 which hopefully is still relevant. I use 300J of energy per server to migrate a VNF (with 600MB traffic), and I multiply it by the energy price of the origin and destination servers. \n
         """
         Joules_to_MWh = 1/1000000 * 900/3600
+        Watts_over_15min_to_MWh = 1/1000000 * 900/3600 
+        P_idle = 65 # Watts
         fix_migration_energy = 300 # Joules
         if self.k == 0:
             self.Cm = gp.LinExpr(0) # no migration cost for the first time slot
@@ -421,6 +410,10 @@ class NetworkMapping:
             for v in self.virtual_nodes # for each VNF
             for i in self.physical_nodes # for the origin node
             for j in self.physical_nodes # for the destination node
+        )+ gp.quicksum(
+            self.energy_price[self.physical_nodes[i]][self.k] * Watts_over_15min_to_MWh * P_idle * self.xi[v, i]
+            for v in range(len(self.virtual_nodes))
+            for i in range(len(self.physical_nodes))
         )
         return self.Cm
 
@@ -429,6 +422,10 @@ class NetworkMapping:
             Total cost over the time window W, for the foresighted model. \n
             This function will be used to compute the total cost over the time window W, and will be used in the objective function\n
         """
+        if self.W == 0: # just one time slot, no migration cost
+            self.total_cost = self.energy_cost(self.k) + self.link_delay_cost()
+            return self.total_cost
+        
         self.total_cost = gp.quicksum(
             self.energy_cost(k)  + self.link_delay_cost()
             # + self.usage_cost() + self.disposal_cost(k)
@@ -444,10 +441,10 @@ class NetworkMapping:
             Cost at time slot k, used to save the cost at each time slot and display the cumulative cost at the end of the optimization process. \n
         """
         if self.W == 0: # no migration cost
-            return self.energy_cost().getValue() + self.link_delay_cost().getValue() 
+            return self.energy_cost().getValue() 
         
-        # cost_k = self.energy_cost() + self.usage_cost() + self.disposal_cost() + self.link_delay_cost() + self.migration_cost()
-        cost_k = self.energy_cost() + self.migration_cost()  + self.link_delay_cost()
+        # cost_k = self.energy_cost() + self.usage_cost() + self.disposal_cost() + self.migration_cost()
+        cost_k = self.energy_cost() + self.migration_cost()  
         return cost_k.getValue()
     
     def individual_costs_at_k(self):
@@ -497,8 +494,7 @@ class NetworkMapping:
             self.phi_link.Start = self.prev_phi_link
         if self.prev_sigma.size > 0:
             self.sigma.Start = self.prev_sigma
-        if self.prev_xi.size > 0:
-            self.xi.Start = self.prev_xi
+        # deleted xi init because it doesn't make any sense to warm start the migration variables
 
     
     def compute_model(self):
@@ -573,7 +569,7 @@ class NetworkMapping:
         self.gpmodel.Params.OutputFlag = int(self.verbose)
         self.compute_model()
         self.optimize()
-        self.plot_graph(graph_name=f"physical_graph_k{self.k}")
+        self.plot_graph(graph_name=f"physical_graph_k{self.k:02d}")
         cost_k = self.effective_cost_at_k()
         individual_costs_k = self.individual_costs_at_k()
         self.cost.append({"effective_cost": cost_k, **individual_costs_k})
@@ -584,7 +580,7 @@ class NetworkMapping:
             print(f"Hyperparameters : W={self.W}, S={self.S}, N={self.N}")
             self.update_model()
             self.optimize()
-            self.plot_graph(graph_name=f"physical_graph_k{self.k}")
+            self.plot_graph(graph_name=f"physical_graph_k{self.k:02d}")
             cost_k = self.effective_cost_at_k()
             individual_costs_k = self.individual_costs_at_k()
             self.cost.append({"effective_cost": cost_k, **individual_costs_k}) # list of dicts, each dict for 1 time slot k
@@ -626,12 +622,12 @@ class NetworkMapping:
             - m : memory resource usage / availability (on red and blue nodes only)
             - e : energy price (on all nodes) \n
             The edges are colored in red if they are used to map at least one logical link, and indicate their bandwidth usage / availability. \n
-            Saves the plot as  `./plots/physical_graph.svg`\n
+            Saves the plot as  `./plots/graphs/physical_graph.svg`\n
 
             Argument : graph_name (str) : name of the graph and the file to save, default is "physical_graph"
         """
         assert self.optimized_flag, "The model must have been optimized in order to generate the graph"
-        plots_dir = Path(__file__).resolve().parent / "plots"
+        plots_dir = Path(__file__).resolve().parent / "plots/graphs"
         plots_dir.mkdir(parents=True, exist_ok=True)
         g = graphviz.Digraph(
             graph_name,                     # name of the graph
@@ -674,7 +670,7 @@ class NetworkMapping:
         for access_node in self.access_nodes.values():
             g.node(access_node, color='blue', fontcolor='blue')
 
-        g.attr(label=f"k={self.k}", labelloc="t", labeljust="l", fontsize="14", fontcolor="black")
+        g.attr(label=f"k={self.k:02d}", labelloc="t", labeljust="l", fontsize="14", fontcolor="black")
         g.render(directory=str(plots_dir), cleanup=True)
 
 

@@ -4,9 +4,25 @@
 
 from model_class import NetworkMapping, json_parser
 import matplotlib.pyplot as plt
+import pickle
 import numpy as np
 import time
+import subprocess, os
 
+def plot_as_emf(figure, **kwargs):
+    filepath = kwargs.get('filename', None)
+
+    if filepath is not None:
+        path, filename = os.path.split(filepath)
+        filename, extension = os.path.splitext(filename)
+
+        svg_filepath = os.path.join(path, filename+'.svg')
+        emf_filepath = os.path.join(path, filename+'.emf')
+
+        figure.savefig(svg_filepath, format='svg')
+
+        subprocess.call(["inkscape", svg_filepath, '--export-type=emf']) #emf_filepath
+        os.remove(svg_filepath)
 
 
 def run_simulation(model_name, W, N, time_stride=1, prices_csv="energy_prices.csv"):
@@ -43,7 +59,10 @@ def trace_cost_curve_for_different_W(model_name, W_list, N, time_stride=1, price
     # Cost per time slot for each W
     ax = axes[0]
     for i, W in enumerate(W_list):
-        ax.plot(range(len(cost_curve[i])), cost_curve[i], label=f"W={W}")
+        if W == 0:
+            ax.plot(range(len(cost_curve[i])), cost_curve[i],label="Static")
+        else:
+            ax.plot(range(len(cost_curve[i])), cost_curve[i], label=f"W={W}")
     ax.set_xlabel("Time slot k")
     ax.set_ylabel("Cost at time slot k")
     ax.set_title(f"Cost per time slot k for different values of W (N={N})")
@@ -94,16 +113,32 @@ def trace_cost_curve_for_different_W(model_name, W_list, N, time_stride=1, price
     ax4.grid()
 
     plt.tight_layout()
-    plt.savefig(f"cost_curve_W_{model_name}_N{N}.png")
+    #plt.savefig(f"cost_curve_W_{model_name}_N{N}.svg")             # saves as a mere svg file
+
+    save_figure(fig, f"cost_curve_W_{model_name}_N{N}")             # saves as an adjustable python pickle file
+    fig = plt.gcf()
+    # plot_as_emf(fig, filename=f"cost_curve_W_{model_name}_N{N}")  # saves as an emf file, editable on poweproint or Inkscape
+    plt.show()
+
+def save_figure(fig, figname="figure"):
+    with open(f"plots/simulations/{figname}.pkl", "wb") as f:
+        pickle.dump(fig, f)
+
+def show_figure(figname="figure"):
+    with open(f"plots/simulations/{figname}.pkl", "rb") as f:
+        fig = pickle.load(f)
     plt.show()
     
 
 if __name__ == "__main__":
     model_name = "nobel-eu"
     W_list = [0, 1, 2, 3, 4, 5]
-    N = 24
+    N = 10
     time_stride = 2
     prices_csv = "energy_prices_today.csv"
+
     trace_cost_curve_for_different_W(model_name, W_list, N, time_stride, prices_csv)
+
+    #show_figure(figname=f"cost_curve_W_{model_name}_N{N}")
 
     #run_simulation(model_name, W=3, N=N, time_stride=time_stride, prices_csv=prices_csv)
