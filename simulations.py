@@ -95,7 +95,6 @@ def trace_cost_curve_for_different_W(model_name, W_list, N, time_stride=1, price
         except:
             pass
     energy_costs = [network_mapping.cost[k][cost_component] for k in range(N)]
-    ax3.plot(range(len(energy_costs)), np.array(energy_costs) - np.mean(energy_costs), label="energy_cost_diff")
     ax3.set_xlabel("Time slot k")
     ax3.set_ylabel("Cost at time slot k")
     ax3.set_title(f"Cost components per time slot k for W={W_list[-1]} (N={N})")
@@ -113,18 +112,18 @@ def trace_cost_curve_for_different_W(model_name, W_list, N, time_stride=1, price
     ax4.grid()
 
     plt.tight_layout()
-    #plt.savefig(f"cost_curve_W_{model_name}_N{N}.svg")             # saves as a mere svg file
+    plt.savefig(f"cost_curve_W_{model_name}_N{N}.svg")              # saves as a mere svg file
 
-    save_figure(fig, f"cost_curve_W_{model_name}_N{N}")             # saves as an adjustable python pickle file
+    save_pkl(fig, f"cost_curve_W_{model_name}_N{N}")                # saves as an adjustable python pickle file
     fig = plt.gcf()
     # plot_as_emf(fig, filename=f"cost_curve_W_{model_name}_N{N}")  # saves as an emf file, editable on poweproint or Inkscape
     plt.show()
 
-def save_figure(fig, figname="figure"):
+def save_pkl(fig, figname="figure"):
     with open(f"plots/simulations/{figname}.pkl", "wb") as f:
         pickle.dump(fig, f)
 
-def show_figure(figname="figure"):
+def show_pkl(figname="figure"):
     with open(f"plots/simulations/{figname}.pkl", "rb") as f:
         fig = pickle.load(f)
     plt.show()
@@ -133,12 +132,13 @@ def show_figure(figname="figure"):
 if __name__ == "__main__":
     model_name = "nobel-eu"
     W_list = [0, 1, 2, 3, 4, 5]
-    N = 10
+    N = 42
     time_stride = 2
     prices_csv = "energy_prices_today.csv"
 
     trace_cost_curve_for_different_W(model_name, W_list, N, time_stride, prices_csv)
 
-    #show_figure(figname=f"cost_curve_W_{model_name}_N{N}")
+    # show_pkl(figname=f"{model_name}_N{N}_afterclean")
+
 
     #run_simulation(model_name, W=3, N=N, time_stride=time_stride, prices_csv=prices_csv)
