@@ -1,30 +1,6 @@
-""" PERSONAL NOTES AND COMMENTS
-    This program is a simple implementation of the energy price aware network mapping problem for Infrastructure Providers (InP) to reduce their energy costs. The first implementation will take only into account a fraction of the constraints in my draft, and with a not-yet proper modeling of the physical and logical graphs, but it will be a good starting point to test the model and then we can start to add more constraints and a better modeling of the graphs.
-
-    I recall having a program that generates random graphs, it will be useful to test the model with different topologies and different parameters but that's not the purpose of this first draft
-
-    TODO : I have a question relative to the flow conservation constraint. Is it really a sum over each j like in Trung's paper "Accelerating Network Slice Embedding..." or only the neighbours ? I considered only the neighbors here because it doesn't make any sense to map logical links to non-existing physical links, but maybe the variable has a hidden role.
-
-    TODO : multiple SFCs to implement everywhere maybe, for now it's only on the delay constraint. 
-
-    TODO : maybe adapt the prediction window thig to give more importance to early gains, like a discount factor. Because one of the main problems we observe is the fact that W=5 is not always the most efficient because what is optimized is a mean value for the whole window. If another migration is to be done, basically the gain that we were supposed to have is lost because we just changed the placement of the VNFs. So maybe we can consider a discount factor for the future costs, like a geometric series with a discount factor of 0.9 or 0.8, so that the optimizer will prefer to have a lower cost at the beginning of the window rather than at the end.
-
-    TODO : find a better day to conduct the tests, and a larger spectrum too have sometimes where migration is worth and some where it's absolutely not. 
-
-    Created on June 16th, 2026 by Enzo Henry
-"""
-
-""" ABOUT THIS BRANCH : foresighted model 
-    This is baseline 3 : we consider time-varying parameters, and a migration cost (for now fixed). We will consider W the time window of estimated (deterministic here) parameters, and S the number of time steps on which we will optimize. 
-    Multiple approaches are possible, considering a space-time variable extension could be too complex and cause scalability issues, so maybe we will consider a pool of "migration-candidate" VNFs and only keep the mapping variables for those VNFs, and then we will have to consider a migration cost for each VNF that is migrated from one node to another. 
-
-    other ways to do it : 
-    - relax the integer constraint on the interval [k+S, k+W] so that we can have a continuous variable for the mapping of the VNFs, so the complexity goes from linear to the time window W to logarithmic (I think it was in the chapter 7 of Wolsey's "Integer Programming" book)
-    - warm start the model with the previous mapping allows the optimizer to converge faster and avoid instability (migration cost function will penalize the model for migrating VNFs unnecessarily anyways)
-    - warm start using Machine Learning. Supervised learning to predict the mapping of the VNFs for the next time step, and then use this prediction as a warm start for the optimization model (I need to finish reading Nair et al. 2021 (arXiv:2012.13349v3)). Basically a binary classifier on each VNF. For this I will need a pretty good graph dataset or a good graph generator (in that case I will most certainly use NetworkX as Trung and Michel told me). I'm working on the stochastic engine module to generate all the parameters for the model, this won't take too long imo.
-
-    Actually we will do as such : we consider the parameters on a window W of observation and we'll decide on only S=1 time step, so with only one set of variables for the mapping of the VNFs.
-    For that we'll be needing a few additional functions total_window_cost, migration_cost, total_window_constraints, and total_window_objective_function.
+""" ABOUT THIS FILE.
+    This file contains the class NetworkMapping, adapted to optimize perfectly the mapping of VNFs to physical servers and the routing of logical links to physical links.
+    This is expected to take a very long time to optimize but the solution is supposed to be optimal.
 """
 
 import gurobipy as gp
@@ -124,8 +100,7 @@ class NetworkMapping:
         self.k = 0      # maximum is self.N - 1
         self.cost = []
         self.overall_cost = 0
-        self.placement = []     # list of dicts, each dict for 1 time slot k, with the mapping of VNFs to physical servers
-        self.migrations = []    # list of number of migrations for each time slot k
+        self.placement = []
 
         self.verbose = False
 
@@ -172,83 +147,90 @@ class NetworkMapping:
     def generate_variables(self):
         """ generates the mapping variables for the VNFs to physical servers and for the logical links to physical links """
         # Numpy array of binary variables for the mapping of VNFs to physical servers (the only ones we need for now)
-        self.phi_node = self.gpmodel.addMVar((len(self.virtual_nodes), len(self.physical_nodes)), vtype=GRB.BINARY, name="phi_nodes")
-        self.phi_link = self.gpmodel.addMVar((len(self.logical_links), len(self.physical_links)), vtype=GRB.BINARY, name="phi_link")
+        self.phi_node = self.gpmodel.addMVar(self.N, (len(self.virtual_nodes), len(self.physical_nodes)), vtype=GRB.BINARY, name="phi_nodes")
+        self.phi_link = self.gpmodel.addMVar(self.N, (len(self.logical_links), len(self.physical_links)), vtype=GRB.BINARY, name="phi_link")
         # node activation variables, sigma_i = 1 if at least one VNF is mapped to node i, 0 otherwise
-        self.sigma = self.gpmodel.addMVar((len(self.physical_nodes),), vtype=GRB.BINARY, name="sigma")
+        self.sigma = self.gpmodel.addMVar(self.N, (len(self.physical_nodes),), vtype=GRB.BINARY, name="sigma")
         # migration variables, xi_v,i = 1 if VNF v is migrated to node i, 0 otherwise
-        self.xi = self.gpmodel.addMVar((len(self.virtual_nodes), len(self.physical_nodes)), vtype=GRB.BINARY, name="xi")
+        self.xi = self.gpmodel.addMVar(self.N, (len(self.virtual_nodes), len(self.physical_nodes)), vtype=GRB.BINARY, name="xi")
 
     def generate_mapping_constraints(self):
         """ generates the mapping constraints on phi_node and phi_link """
-        # Each VNF must be mapped to exactly one physical server
-        for v in range(len(self.virtual_nodes)):
-            self.gpmodel.addConstr(
-                gp.quicksum(self.phi_node[v, i] for i in range(len(self.physical_nodes))) == 1
-            )
-        # Flow conservation constraints for the logical links 
-        for i_index, i in enumerate(self.physical_nodes):
-            for vlink_index, (v, w) in enumerate(self.logical_links):
+        
+        for k in range(self.N):
+            # Each VNF must be mapped to exactly one physical server
+            for v in range(len(self.virtual_nodes)):
                 self.gpmodel.addConstr(
-                    gp.quicksum(
-                        self.phi_link[vlink_index, self.physical_link_index[(i, j)]] 
-                        - self.phi_link[vlink_index, self.physical_link_index[(j, i)]] 
-                        for j_index, j in enumerate(self.physGraph[i])
-                    )
-                    == self.phi_node[self.virtual_nodes_index[v], i_index] - self.phi_node[self.virtual_nodes_index[w], i_index]                
+                    gp.quicksum(self.phi_node[k, v, i] for i in range(len(self.physical_nodes))) == 1
                 )
+            # Flow conservation constraints for the logical links 
+            for i_index, i in enumerate(self.physical_nodes):
+                for vlink_index, (v, w) in enumerate(self.logical_links):
+                    self.gpmodel.addConstr(
+                        gp.quicksum(
+                            self.phi_link[k, vlink_index, self.physical_link_index[(i, j)]] 
+                            - self.phi_link[k, vlink_index, self.physical_link_index[(j, i)]] 
+                            for j_index, j in enumerate(self.physGraph[i])
+                        )
+                        == self.phi_node[k, self.virtual_nodes_index[v], i_index] - self.phi_node[k, self.virtual_nodes_index[w], i_index]                
+                    )
     
     def generate_node_activation_constraints(self):
         # sigma_i = 1 if at least one VNF is mapped to node i, 0 otherwise
         # addGenConstrOr is a Gurobi function that takes the logical OR of a list of binary variables, here all the mapped VNFs to node i
-        for i_index in range(len(self.physical_nodes)):
-            self.gpmodel.addGenConstrOr(        
-                self.sigma[i_index],
-                [self.phi_node[v, i_index] for v in range(len(self.virtual_nodes))]
-            )
+        for k in range(self.N):
+            for i_index in range(len(self.physical_nodes)):
+                self.gpmodel.addGenConstrOr(        
+                    self.sigma[k, i_index],
+                    [self.phi_node[k, v, i_index] for v in range(len(self.virtual_nodes))]
+                )
 
     def generate_availability_constraints(self):
-        # Availability constraints for the physical servers only, access nodes excluded in the range
-        for i_index, i in enumerate(self.physical_nodes):
-            if i not in self.access_nodes: # just erase this line to apply the constraints to access nodes as well
-                # In terms of computing resource
-                self.gpmodel.addConstr(
-                    gp.quicksum(
-                        self.phi_node[v_index, i_index] * self.computing_requirements[v] 
+        
+        for k in range(self.N):
+            # Availability constraints for the physical servers only, access nodes excluded in the range
+            for i_index, i in enumerate(self.physical_nodes):
+                if i not in self.access_nodes: # just erase this line to apply the constraints to access nodes as well
+                    # In terms of computing resource
+                    self.gpmodel.addConstr(
+                        gp.quicksum(
+                            self.phi_node[k, v_index, i_index] * self.computing_requirements[v] 
                             for v_index, v in enumerate(self.virtual_nodes)
                     ) <=  self.computing_availability[self.physical_nodes[i_index]]
                 )
                 # In terms of memory resource
                 self.gpmodel.addConstr(
                     gp.quicksum(
-                        self.phi_node[v_index, i_index] * self.memory_requirements[v] 
+                        self.phi_node[k, v_index, i_index] * self.memory_requirements[v] 
                             for v_index, v in enumerate(self.virtual_nodes)
                     ) <=  self.memory_availability[self.physical_nodes[i_index]]
                 )
 
-        # And in terms of bandwidth usage
-        for i, j in self.physical_links:
-            self.gpmodel.addConstr(
-                gp.quicksum(
-                    self.phi_link[vlink_index, self.physical_link_index[(i, j)]] * self.bandwidth_requirement[vlink_index] 
-                        for vlink_index, (v,w) in enumerate(self.logical_links)
-                ) <= self.bandwidth_availability[self.physical_link_index[(i, j)]]
-            )
+            # And in terms of bandwidth usage
+            for i, j in self.physical_links:
+                self.gpmodel.addConstr(
+                    gp.quicksum(
+                        self.phi_link[k, vlink_index, self.physical_link_index[(i, j)]] * self.bandwidth_requirement[vlink_index] 
+                            for vlink_index, (v,w) in enumerate(self.logical_links)
+                    ) <= self.bandwidth_availability[self.physical_link_index[(i, j)]]
+                )
 
     def generate_access_nodes_constraints(self):
-        # First VNF must be mapped to the first access node and the last VNF must be mapped to the last access node 
-        for access_node in self.access_nodes.items():
-             # First VNF must be mapped to the first access node and the last VNF must be mapped to the last access node 
-            self.gpmodel.addConstr( 
-                self.phi_node[
-                    self.virtual_nodes_index[access_node[0]], 
-                    self.physical_nodes_index[access_node[1]]
-                ] == 1
-            )
-            # and only those two VNFs can be mapped to the access nodes
-            for v_index, v in enumerate(self.virtual_nodes):
-                if v not in self.access_nodes.keys():
-                    self.gpmodel.addConstr(self.phi_node[v_index, self.physical_nodes_index[access_node[1]]] == 0)
+        for k in range(self.N):
+            # First VNF must be mapped to the first access node and the last VNF must be mapped to the last access node 
+            for access_node in self.access_nodes.items():
+                # First VNF must be mapped to the first access node and the last VNF must be mapped to the last access node 
+                self.gpmodel.addConstr( 
+                    self.phi_node[
+                        k,
+                        self.virtual_nodes_index[access_node[0]], 
+                        self.physical_nodes_index[access_node[1]]
+                    ] == 1
+                )
+                # and only those two VNFs can be mapped to the access nodes
+                for v_index, v in enumerate(self.virtual_nodes):
+                    if v not in self.access_nodes.keys():
+                        self.gpmodel.addConstr(self.phi_node[k, v_index, self.physical_nodes_index[access_node[1]]] == 0)
 
     def generate_migration_constraints(self):
         """
@@ -256,21 +238,22 @@ class NetworkMapping:
         """
         if self.k == 0:
             return # no migration constraints for the first time slot
-        
-        self.migration_constrs = []
-        for v in range(len(self.virtual_nodes)):
-            for i in range(len(self.physical_nodes)):
-                c1 = self.gpmodel.addConstr(
-                    self.xi[v, i] >= self.phi_node[v, i] - self.prev_phi_node[v, i]
+        for k in range(1, self.N):
+            # migration constraints for each VNF v and each physical server i
+            self.migration_constrs = []
+            for v in range(len(self.virtual_nodes)):
+                for i in range(len(self.physical_nodes)):
+                    c1 = self.gpmodel.addConstr(
+                        self.xi[k, v, i] >= self.phi_node[k, v, i] - self.phi_node[k-1, v, i]
+                    )
+                    c2 = self.gpmodel.addConstr(
+                        self.xi[k, v, i] <= 1 - self.phi_node[k-1, v, i]
+                    )
+                    self.migration_constrs += [c1, c2]
+                c3 = self.gpmodel.addConstr(
+                    gp.quicksum(self.xi[k, v, i] for i in range(len(self.physical_nodes))) <= 1
                 )
-                c2 = self.gpmodel.addConstr(
-                    self.xi[v, i] <= 1 - self.prev_phi_node[v, i]
-                )
-                self.migration_constrs += [c1, c2]
-            c3 = self.gpmodel.addConstr(
-                gp.quicksum(self.xi[v, i] for i in range(len(self.physical_nodes))) <= 1
-            )
-            self.migration_constrs.append(c3)
+                self.migration_constrs.append(c3)
 
     def generate_delay_constraints(self):
         """
@@ -295,15 +278,17 @@ class NetworkMapping:
                     ) <= self.max_delay
                 )
         else:
-            self.gpmodel.addConstr(
-                gp.quicksum(
-                    self.phi_link[vw_index, ij_index] * self.links_distance_dict[ij[0]][ij[1]] * delay_per_100km
-                    + self.phi_link[vw_index, ij_index] * delay_per_hop # corresponds to the switching delay at the physical nodes
-                    + self.phi_node[self.virtual_nodes_index[vw[1]], self.physical_nodes_index[ij[1]]] * delay_per_VNF
-                    for ij_index, ij in enumerate(self.physical_links)
-                    for vw_index, vw in enumerate(self.logical_links)
-                ) <= self.max_delay
-            )
+            for k in range(self.N):
+                self.gpmodel.addConstr(
+                    gp.quicksum(
+                        self.phi_link[k, vw_index, ij_index] * self.links_distance_dict[ij[0]][ij[1]] * delay_per_100km
+                        + self.phi_link[k, vw_index, ij_index] * delay_per_hop # corresponds to the switching delay at the physical nodes
+                        + self.phi_node[k, self.virtual_nodes_index[vw[0]], self.physical_nodes_index[ij[0]]] * delay_per_VNF
+                        for ij_index, ij in enumerate(self.physical_links)
+                        for vw_index, vw in enumerate(self.logical_links)
+                    ) <= self.max_delay
+                )
+            
 
     def energy_cost(self, k=None): 
         """
@@ -327,7 +312,7 @@ class NetworkMapping:
         P_idle = 65 # Watts
         P_max = 219 # Watts
         CPU_usage = lambda i: gp.quicksum(
-            self.phi_node[v, i] * self.computing_requirements[self.virtual_nodes[v]] 
+            self.phi_node[k - self.k, v, i] * self.computing_requirements[self.virtual_nodes[v]] 
             for v in range(len(self.virtual_nodes))
         ) / self.computing_availability[self.physical_nodes[i]]
         Power = lambda i: P_idle + (P_max - P_idle) * CPU_usage(i)
@@ -337,27 +322,29 @@ class NetworkMapping:
         ) 
         return self.Ce
     
-    def disposal_cost(self, k=None):
+    def disposal_cost(self, k=None): # à revoir
         if k is None:
             k = self.k # but unused fot the moment
         self.Cf = gp.quicksum(
-            self.node_disposal_price[self.physical_nodes[i]] * self.sigma[i] for i in range(len(self.physical_nodes))
+            self.node_disposal_price[self.physical_nodes[i]] * self.sigma[k, i] for i in range(len(self.physical_nodes))
         )
         return self.Cf
     
-    def usage_cost(self):
+    def usage_cost(self, k=None):   # à revoir
+        if k is None:
+            k = self.k
         self.Cr = gp.quicksum(
             gp.quicksum(
-                self.CPU_usage_price[self.physical_nodes[i]] * self.phi_node[v, i] * self.computing_requirements[self.virtual_nodes[v]] 
+                self.CPU_usage_price[self.physical_nodes[i]] * self.phi_node[k, v, i] * self.computing_requirements[self.virtual_nodes[v]] 
                 for v in range(len(self.virtual_nodes))
             ) 
             + gp.quicksum(
-                self.memory_usage_price[self.physical_nodes[i]] * self.phi_node[v, i] * self.memory_requirements[self.virtual_nodes[v]] 
+                self.memory_usage_price[self.physical_nodes[i]] * self.phi_node[k, v, i] * self.memory_requirements[self.virtual_nodes[v]] 
                 for v in range(len(self.virtual_nodes))
             ) 
             + gp.quicksum(
                 self.bandwidth_usage_price[self.physical_nodes[i]][self.physical_nodes[j]] 
-                * self.phi_link[v_link, self.physical_link_index[(self.physical_nodes[i], self.physical_nodes[j])]] 
+                * self.phi_link[k, v_link, self.physical_link_index[(self.physical_nodes[i], self.physical_nodes[j])]] 
                 * self.bandwidth_requirement[v_link] 
                 for v_link in range(len(self.logical_links)) 
                 for j in range(len(self.physical_nodes)) if (self.physical_nodes[i], self.physical_nodes[j]) in self.physical_links
@@ -366,31 +353,35 @@ class NetworkMapping:
         )
         return self.Cr
     
-    def link_delay(self):
+    def link_delay(self, k=None): # 
+        if k is None:
+            k = self.k
         delay_per_100km = 0.0005 # 0.5ms per 100km of optical fiber
         delay_per_hop = 0.001 # 1ms per hop (switching delay)
         delay_per_VNF = 0.002 # 2ms per VNF hosting (processing delay, idk if it's realistic)
         self.total_link_delay = gp.quicksum(
-                self.phi_link[vw_index, ij_index] * (
+                self.phi_link[k - self.k, vw_index, ij_index] * (
                     self.links_distance_dict[ij[0]][ij[1]] * delay_per_100km
                     + delay_per_hop # corresponds to the switching delay at the physical nodes
-                    + self.phi_node[self.virtual_nodes_index[vw[0]], self.physical_nodes_index[ij[0]]] * delay_per_VNF
+                    + self.phi_node[k - self.k, self.virtual_nodes_index[vw[0]], self.physical_nodes_index[ij[0]]] * delay_per_VNF
                 )
                 for ij_index, ij in enumerate(self.physical_links)
                 for vw_index, vw in enumerate(self.logical_links)
             )
         return self.total_link_delay
 
-    def link_delay_cost(self, coefficient=0.0000001):
+    def link_delay_cost(self, k=None, coefficient=0.0000001):
         """
            This will be our fictious cost to reduce delay. This should not appear in the effective cost (effective_cost_at_k) but will be in the objective function to reduce the delay
            It is supposed to be negligible compared to the other costs, but it will be used to make the optimizer choose the shortest paths for the logical links, and thus simplify the final graph (many path are available). \n
         """
-        self.Cl = coefficient * self.link_delay()
+        if k is None:
+            k = self.k
+        self.Cl = coefficient * self.link_delay(k=k)
         # return gp.LinExpr(0)
         return self.Cl
     
-    def migration_cost(self, coefficient=1):
+    def migration_cost(self, k=None, coefficient=1):
         """
             REALISTIC MIGRATION COST FUNCTION :\n
             Migration cost for the foresighted model, taking into account the migration of VNFs from one physical server to another. \n
@@ -398,6 +389,8 @@ class NetworkMapping:
 
             For now, I consider a fix value from Liu2011 which hopefully is still relevant. I use 300J of energy per server to migrate a VNF (with 600MB traffic), and I multiply it by the energy price of the origin and destination servers. \n
         """
+        if k is None:
+            k = self.k
         Joules_to_MWh = 1/1000000 * 900/3600
         Watts_over_15min_to_MWh = 1/1000000 * 900/3600 
         P_idle = 65 # Watts
@@ -406,19 +399,34 @@ class NetworkMapping:
             self.Cm = gp.LinExpr(0) # no migration cost for the first time slot
             return self.Cm
 
-        self.Cm = gp.quicksum(
-            coefficient * Joules_to_MWh * fix_migration_energy 
-            * (self.energy_price[i][self.k] + self.energy_price[j][self.k])
-            * self.xi[self.virtual_nodes_index[v], self.physical_nodes_index[j]]
-            * self.prev_phi_node[self.virtual_nodes_index[v], self.physical_nodes_index[i]]
-            for v in self.virtual_nodes # for each VNF
-            for i in self.physical_nodes # for the origin node
-            for j in self.physical_nodes # for the destination node
-        )+ gp.quicksum(
-            self.energy_price[self.physical_nodes[i]][self.k] * Watts_over_15min_to_MWh * P_idle * self.xi[v, i]
-            for v in range(len(self.virtual_nodes))
-            for i in range(len(self.physical_nodes))
-        )
+        if k == self.k:
+            self.Cm = gp.quicksum(
+                coefficient * Joules_to_MWh * fix_migration_energy 
+                * (self.energy_price[i][k] + self.energy_price[j][k])
+                * self.xi[0, self.virtual_nodes_index[v], self.physical_nodes_index[j]]
+                * self.prev_phi_node[0, self.virtual_nodes_index[v], self.physical_nodes_index[i]]
+                for v in self.virtual_nodes # for each VNF
+                for i in self.physical_nodes # for the origin node
+                for j in self.physical_nodes # for the destination node
+            )+ gp.quicksum(
+                self.energy_price[self.physical_nodes[i]][k] * Watts_over_15min_to_MWh * P_idle * self.xi[0, v, i]
+                for v in range(len(self.virtual_nodes))
+                for i in range(len(self.physical_nodes))
+            )
+        elif k >= self.k + 1:
+            self.Cm = gp.quicksum(
+                coefficient * Joules_to_MWh * fix_migration_energy 
+                * (self.energy_price[i][k] + self.energy_price[j][k])
+                * self.xi[k-self.k, self.virtual_nodes_index[v], self.physical_nodes_index[j]]
+                * self.phi_node[k - self.k - 1, self.virtual_nodes_index[v], self.physical_nodes_index[i]]
+                for v in self.virtual_nodes # for each VNF
+                for i in self.physical_nodes # for the origin node
+                for j in self.physical_nodes # for the destination node
+            )+ gp.quicksum(
+                self.energy_price[self.physical_nodes[i]][k] * Watts_over_15min_to_MWh * P_idle * self.xi[k-self.k, v, i]
+                for v in range(len(self.virtual_nodes))
+                for i in range(len(self.physical_nodes))
+            )
         return self.Cm
 
     def total_window_cost(self):
@@ -431,10 +439,10 @@ class NetworkMapping:
             return self.total_cost
         
         self.total_cost = gp.quicksum(
-            self.energy_cost(k)  + self.link_delay_cost()
+            self.energy_cost(k)  + self.link_delay_cost(k) + self.migration_cost(k)
             # + self.usage_cost() + self.disposal_cost(k)
             for k in range(self.k, self.k + self.W)
-        ) + self.migration_cost()
+        ) 
         return self.total_cost
     
     def total_window_objective_function(self):
@@ -472,33 +480,20 @@ class NetworkMapping:
         }
         return cost_k
 
-    def objective_function(self):
-        """
-            DEPRECATED : use total_window_objective_function instead, this one is for the myopic model only. \n
-            Objective function of the problem : $E_{InP} = C_e + C_r + C_f + C_l$
-
-            where:
-            - C_e is the energy cost (variable cost), \n
-            - C_r is the resource usage cost (variable cost), \n
-            - C_f is the disposal cost (fix cost), \n
-            - C_l is the link usage cost (this one doesn't appear in my paper, it is to make the model choose the shortest paths). \n
-            The objective function is to **minimize** the total cost $E_{InP}$.
-        """
-        self.gpmodel.setObjective(self.energy_cost() + self.usage_cost() + self.disposal_cost() + self.link_delay_cost(), GRB.MINIMIZE)
-
     def warm_start(self):
         """
             Warm start the model with the previous mapping of the VNFs to physical servers and logical links to physical links. \n
             This method is useful to speed up the optimization process, especially for the foresighted model where we have a time window W of observation and we want to optimize for S time steps. \n
             The warm start is done by setting the initial values of the mapping variables to the previous values, and setting the initial values of the migration variables to 0 (no migration at the beginning).
         """
+        return # no warm start on this model for now, we'll see about it
         if self.prev_phi_node.size > 0:
             self.phi_node.Start = self.prev_phi_node
         if self.prev_phi_link.size > 0:
             self.phi_link.Start = self.prev_phi_link
         if self.prev_sigma.size > 0:
             self.sigma.Start = self.prev_sigma
-        # deleted xi init because it doesn't make any sense to warm start the migration variables
+
 
     
     def compute_model(self):
@@ -525,12 +520,11 @@ class NetworkMapping:
         self.prev_sigma = self.sigma.X.copy()
         self.prev_xi = self.xi.X.copy()
         self.k += 1
-        if hasattr(self, "migration_constrs"): # constraints cleanup
-            for c in self.migration_constrs:
-                self.gpmodel.remove(c)
+        
+        self.gpmodel.remove(self.gpmodel.getConstrs())
         self.generate_migration_constraints()
         self.total_window_objective_function()
-        self.warm_start()
+        self.warm_start() # useless here
 
 
     def optimize(self):
@@ -578,7 +572,6 @@ class NetworkMapping:
         individual_costs_k = self.individual_costs_at_k()
         self.cost.append({"effective_cost": cost_k, **individual_costs_k})
         self.placement.append({v: i for v in self.virtual_nodes for i in self.physical_nodes if self.phi_node.X[self.virtual_nodes_index[v], self.physical_nodes_index[i]] == 1})
-        self.migrations.append(0) # no migration for the first time slot
         self.overall_cost += cost_k
         for k in range(1, min(len(self.energy_price[self.physical_nodes[0]]), self.N)): # fail-safe to avoid going out of bounds if the energy price list is shorter than N, maybe will it be better to integrate this directly into the constructor ?
             self.gpmodel.Params.OutputFlag = int(self.verbose)
@@ -591,7 +584,6 @@ class NetworkMapping:
             individual_costs_k = self.individual_costs_at_k()
             self.cost.append({"effective_cost": cost_k, **individual_costs_k}) # list of dicts, each dict for 1 time slot k
             self.placement.append({v: i for v in self.virtual_nodes for i in self.physical_nodes if self.phi_node.X[self.virtual_nodes_index[v], self.physical_nodes_index[i]] == 1})
-            self.migrations.append(int(self.xi.X.sum())) # number of migrations for this time slot k
             self.overall_cost += cost_k
             print(f"Cost for time slot k={k}: {cost_k}")
             print(f"{int(self.gpmodel.NodeCount)} nodes explored in the branch and bound tree")

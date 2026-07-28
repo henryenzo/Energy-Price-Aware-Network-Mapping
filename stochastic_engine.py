@@ -70,7 +70,7 @@ def fetch_energy_prices(start=None, end=None, country_list=COUNTRIES.values(), c
     client = EntsoePandasClient(api_key=TOKEN, session=session)
     data = {}
 
-    if start or end is None:
+    if start is None or end is None:
         end = pd.Timestamp.now(tz="Europe/Brussels").floor("D")
         start = end - pd.Timedelta(days=1)
 
@@ -95,7 +95,7 @@ def fetch_energy_prices(start=None, end=None, country_list=COUNTRIES.values(), c
     df.to_csv(f"data/{csv_file_name}", sep=",", decimal=".", encoding="utf-8-sig")
     return df
 
-def get_energy_prices_from_csv(csv_file_name="energy_prices.csv", time_slots=10, stride=1, country_list=None):
+def get_energy_prices_from_csv(csv_file_name="energy_prices.csv", time_slots=10, stride=1, country_list=None, starting_index=0):
     """
     Fetches energy prices from a CSV file and returns a dictionary of prices for each country/zone.\n
  
@@ -120,7 +120,7 @@ def get_energy_prices_from_csv(csv_file_name="energy_prices.csv", time_slots=10,
     for code in country_list:
         assert code in df.columns, f"Column {code} not found"
         assert time_slots <= len(df)/stride, f"Requested {time_slots} time slots, but only {len(df)/stride} available"
-        prices_dict[code] = df[code].iloc[::stride][:time_slots].tolist()
+        prices_dict[code] = df[code].iloc[starting_index:starting_index + time_slots*stride:stride].tolist()
     
     return prices_dict
     
@@ -277,8 +277,8 @@ def clusterize_graph(graph_dict, countries : list[str] = COUNTRIES.values()):
     
 
 if __name__ == "__main__":
-    start = pd.Timestamp("2026-06-25", tz="Europe/Brussels")
-    end = pd.Timestamp("2026-06-26", tz="Europe/Brussels")
+    start = pd.Timestamp("2026-07-23", tz="Europe/Brussels")
+    end = pd.Timestamp("2026-07-26", tz="Europe/Brussels")
     country_list = list(COUNTRIES.values())
 
     model = json_parser("nobel-eu")
@@ -290,4 +290,4 @@ if __name__ == "__main__":
     #random_graph = generate_random_graph(50)
     #print(random_graph)
 
-    fetch_energy_prices(csv_file_name="energy_prices_today.csv", country_list=country_list)
+    fetch_energy_prices(csv_file_name="energy_prices_3days.csv", country_list=country_list, start=start, end=end)

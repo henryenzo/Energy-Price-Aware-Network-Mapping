@@ -54,7 +54,7 @@ def trace_cost_curve_for_different_W(model_name, W_list, N, time_stride=1, price
         optim_duration.append((end_time - start_time)/N) # average optimization duration per time slot
         delay_curve.append([cost["link_delay"] for cost in network_mapping.cost]) # only keep the delay cost for the delay curve
     
-    fig, axes = plt.subplots(2, 2, figsize=(14, 6))
+    fig, axes = plt.subplots(3, 2, figsize=(14, 6), constrained_layout=True)
     axes = axes.flatten()
     # Cost per time slot for each W
     ax = axes[0]
@@ -77,27 +77,30 @@ def trace_cost_curve_for_different_W(model_name, W_list, N, time_stride=1, price
     ax2.set_title(f"Overall cost vs W (N={N})")
     ax2.grid()
 
-    # # Optimization duration as a function of W
-    # ax3 = axes[2]
-    # ax3.plot(W_list, optim_duration, marker='o')
-    # ax3.set_xlabel("W")
-    # ax3.set_ylabel("Optimization duration (s)")
-    # ax3.set_title(f"Optimization duration vs W (N={N})")
-    # ax3.grid()
+    # secondary y-axis: normalized relative to W=0 
+    ax2b = ax2.twinx()
+    base = overall_costs[0] if len(overall_costs) and overall_costs[0] != 0 else 1
+    normalized = [oc / base for oc in overall_costs]
+    ax2b.plot(W_list, normalized, marker='s', linestyle='--', color='tab:orange')
+    ax2b.set_ylabel('Normalized (W=0 = 1)')
+    ax2b.set_ylim(min(normalized) * 0.95, max(normalized) * 1.05)
 
     # individual cost components for the last W
     ax3 = axes[2]
+    ax3_secondary = ax3.twinx()
     last_W_costs = [cost_curve[-1][k] for k in range(N)]
-    for cost_component in ["energy_cost",  "link_delay_cost", "migration_cost"]: #"usage_cost", "disposal_cost",
+    for cost_component in ["energy_cost", "migration_cost"]: #"usage_cost", "disposal_cost",
         try:
             component_costs = [network_mapping.cost[k][cost_component] for k in range(N)]
             ax3.plot(range(len(component_costs)), component_costs, label=cost_component)
         except:
             pass
+    ax3_secondary.plot(range(len(network_mapping.migrations)), network_mapping.migrations, label="Number of migrations", marker='o', linestyle='None', color='tab:purple')
     energy_costs = [network_mapping.cost[k][cost_component] for k in range(N)]
     ax3.set_xlabel("Time slot k")
     ax3.set_ylabel("Cost at time slot k")
-    ax3.set_title(f"Cost components per time slot k for W={W_list[-1]} (N={N})")
+    ax3_secondary.set_ylabel("Number of migrations")
+    ax3.set_title(f"Cost components per time slot k and number of migrations for W={W_list[-1]} (N={N})")
     ax3.legend()
     ax3.grid()
 
@@ -109,10 +112,43 @@ def trace_cost_curve_for_different_W(model_name, W_list, N, time_stride=1, price
     ax4.set_ylabel("Delay (ms)")
     ax4.set_title(f"Delay vs Time slot k for different values of W (N={N})")
     ax4.legend()
-    ax4.grid()
+    ax4.grid() 
+
+    # Histogram of average price for each country, and the aggregate time spent by VNFs in each country for the last W
+    ax5 = axes[4]
+    ax5_secondary = ax5.twinx()
+    country_prices = network_mapping.price_per_country
+    country_time_spent = {country: 0 for country in country_prices.keys()}
+    for k in range(N):
+        for v in network_mapping.virtual_nodes:
+            country = model["node_country"][network_mapping.placement[k][v]]
+            country_time_spent[country] += 1
+    
+    width = 0.35
+    countries = list(country_prices.keys())
+    x = np.arange(len(countries))
+    avg_prices = [np.mean(country_prices[country]) for country in countries]
+    avg_time_spent = [country_time_spent[country] for country in countries]
+    bars1 = ax5.bar(x - width/2, avg_prices, width, label='Average Price', color='tab:blue')
+    bars2 = ax5_secondary.bar(x + width/2, avg_time_spent, width, label='Average Time Spent', color='tab:orange')
+    ax5.set_xlabel("Country")
+    ax5.set_ylabel("Average energy price")
+    ax5_secondary.set_ylabel("Aggregate time spent")
+    ax5.set_title(f"Average Price and Time Spent per Country for W={W_list[-1]} (N={N})")
+    ax5.set_xticks(x)
+    ax5.set_xticklabels(countries, rotation=45)
+    ax5.legend([bars1, bars2], ['Average Price', 'Average Time Spent'])
+
+    # Optimization duration as a function of W
+    ax6 = axes[5]
+    ax6.plot(W_list, optim_duration, marker='o')
+    ax6.set_xlabel("W")
+    ax6.set_ylabel("Optimization duration (s)")
+    ax6.set_title(f"Optimization duration vs W (N={N})")
+    ax6.grid()
 
     plt.tight_layout()
-    plt.savefig(f"cost_curve_W_{model_name}_N{N}.svg")              # saves as a mere svg file
+    plt.savefig(f"plot/simulations/cost_curve_W_{model_name}_N{N}.svg")              # saves as a mere svg file
 
     save_pkl(fig, f"cost_curve_W_{model_name}_N{N}")                # saves as an adjustable python pickle file
     fig = plt.gcf()
@@ -130,11 +166,12 @@ def show_pkl(figname="figure"):
     
 
 if __name__ == "__main__":
-    model_name = "nobel-eu"
+    model_name = "nobel-eu-1SFC"
     W_list = [0, 1, 2, 3, 4, 5]
-    N = 42
+    N = 70
     time_stride = 2
     prices_csv = "energy_prices_today.csv"
+    prices_csv = "energy_prices_3days.csv"
 
     trace_cost_curve_for_different_W(model_name, W_list, N, time_stride, prices_csv)
 
