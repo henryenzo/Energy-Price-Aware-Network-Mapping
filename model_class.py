@@ -58,7 +58,7 @@ def json_parser(model_name: str, file_name = "test_models.json") -> dict:
 
 
 class NetworkMapping:
-    def __init__(self, model: dict, W: int = 1, S: int = 1, N: int = 10, time_stride: int =1, offset: int = 0, prices_csv: str = "energy_prices.csv"):
+    def __init__(self, model: dict, W: int = 1, S: int = 1, N: int = 10, time_stride: int =1, offset: int = 0, prices_csv: str = "energy_prices.csv", graphviz_output_dir: str = "plots/graphs"):
         """
             Constructor of the class, takes a dict as input containing the model parameters (physGraph, sfc, availability, requirements etc) and initializes the class attributes accordingly. \n
             The model dict is expected to be imported from the json file using the `json_parser` function. \n
@@ -152,7 +152,8 @@ class NetworkMapping:
                 self.logical_links += self.__generate_edges("virtual")
             self.virtual_nodes_index = {node: idx for idx, node in enumerate(self.virtual_nodes)}
             self.logical_links_index = {tuple(edge): idx for idx, edge in enumerate(self.logical_links)}
-        
+
+        self.graphviz_output_dir = graphviz_output_dir
     
     def __generate_edges(self, graph="physical"):
         """ generates the edges of the graph obtained by BFS from i1 to last, as a list of 2-lists, each 2-list representing an edge """
@@ -636,7 +637,7 @@ class NetworkMapping:
             Argument : graph_name (str) : name of the graph and the file to save, default is "physical_graph"
         """
         assert self.optimized_flag, "The model must have been optimized in order to generate the graph"
-        plots_dir = Path(__file__).resolve().parent / "plots/graphs"
+        plots_dir = Path(__file__).resolve().parent / self.graphviz_output_dir
         plots_dir.mkdir(parents=True, exist_ok=True)
         g = graphviz.Digraph(
             graph_name,                     # name of the graph

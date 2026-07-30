@@ -3,7 +3,8 @@
 """
 
 #from model_class import NetworkMapping, json_parser
-from optim_on_whole_window import NetworkMapping, json_parser
+#from optim_on_whole_window import NetworkMapping, json_parser
+from optim_relaxed import NetworkMapping, json_parser
 import matplotlib.pyplot as plt
 import pickle
 import numpy as np
@@ -166,8 +167,11 @@ def save_pkl(fig, figname="figure"):
     with open(f"plots/simulations/{figname}.pkl", "wb") as f:
         pickle.dump(fig, f)
 
-def show_pkl(figname="figure"):
-    with open(f"plots/simulations/{figname}.pkl", "rb") as f:
+def show_pkl(figname="figure", filename=None):
+    if filename is None:
+        filename = f"plots/simulations/{figname}.pkl"
+
+    with open(filename, "rb") as f:
         fig = pickle.load(f)
     plt.show()
     
