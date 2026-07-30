@@ -58,7 +58,7 @@ def json_parser(model_name: str, file_name = "test_models.json") -> dict:
 
 
 class NetworkMapping:
-    def __init__(self, model: dict, W: int = 1, S: int = 1, N: int = 10, time_stride: int =1, prices_csv: str = "energy_prices.csv"):
+    def __init__(self, model: dict, W: int = 1, S: int = 1, N: int = 10, time_stride: int =1, offset: int = 0, prices_csv: str = "energy_prices.csv"):
         """
             Constructor of the class, takes a dict as input containing the model parameters (physGraph, sfc, availability, requirements etc) and initializes the class attributes accordingly. \n
             The model dict is expected to be imported from the json file using the `json_parser` function. \n
@@ -103,7 +103,7 @@ class NetworkMapping:
         # Energy price
         try:
             model_country_list = list(set(model["node_country"].values())) 
-            self.price_per_country  = get_energy_prices_from_csv(csv_file_name=prices_csv, time_slots=self.N+self.W,country_list=model_country_list, stride=time_stride)
+            self.price_per_country  = get_energy_prices_from_csv(csv_file_name=prices_csv, time_slots=self.N+self.W,country_list=model_country_list, stride=time_stride, starting_index=offset)
             
             self.energy_price = {node: list(np.array(self.price_per_country[country])) for node, country in model["node_country"].items()}
             # division by 100 --> deleted now, shouldn't have lasted that long
@@ -254,19 +254,18 @@ class NetworkMapping:
         """
             Subsection 3.3 of my paper draft, the migration constraints are as follows : \n
         """
-        if self.k == 0:
-            return # no migration constraints for the first time slot
-        
         self.migration_constrs = []
         for v in range(len(self.virtual_nodes)):
             for i in range(len(self.physical_nodes)):
                 c1 = self.gpmodel.addConstr(
                     self.xi[v, i] >= self.phi_node[v, i] - self.prev_phi_node[v, i]
                 )
+                c0 = self.gpmodel.addConstr(self.xi[v, i] <= self.phi_node[v, i])
+
                 c2 = self.gpmodel.addConstr(
                     self.xi[v, i] <= 1 - self.prev_phi_node[v, i]
                 )
-                self.migration_constrs += [c1, c2]
+                self.migration_constrs += [c1, c0, c2]
             c3 = self.gpmodel.addConstr(
                 gp.quicksum(self.xi[v, i] for i in range(len(self.physical_nodes))) <= 1
             )
@@ -289,7 +288,7 @@ class NetworkMapping:
             for sfc in self.virtualGraph:
                 self.gpmodel.addConstr(
                     gp.quicksum(
-                        self.phi_link[self.logical_links_index[(v, w)], ij_index] * self.links_distance_dict[ij[0]][ij[1]] * delay_per_100km
+                        self.phi_link[self.logical_links_index[(v, w)], ij_index] *  self.links_distance_dict[ij[0]][ij[1]] * delay_per_100km
                         for ij_index, ij in enumerate(self.physical_links)
                         for v, w in sfc.items()
                     ) <= self.max_delay
@@ -297,9 +296,11 @@ class NetworkMapping:
         else:
             self.gpmodel.addConstr(
                 gp.quicksum(
-                    self.phi_link[vw_index, ij_index] * self.links_distance_dict[ij[0]][ij[1]] * delay_per_100km
-                    + self.phi_link[vw_index, ij_index] * delay_per_hop # corresponds to the switching delay at the physical nodes
-                    + self.phi_node[self.virtual_nodes_index[vw[1]], self.physical_nodes_index[ij[1]]] * delay_per_VNF
+                    self.phi_link[vw_index, ij_index] * (
+                        self.links_distance_dict[ij[0]][ij[1]] * delay_per_100km
+                        + delay_per_hop # corresponds to the switching delay at the physical nodes
+                        + self.phi_node[self.virtual_nodes_index[vw[1]], self.physical_nodes_index[ij[1]]] * delay_per_VNF
+                    )
                     for ij_index, ij in enumerate(self.physical_links)
                     for vw_index, vw in enumerate(self.logical_links)
                 ) <= self.max_delay
@@ -332,7 +333,7 @@ class NetworkMapping:
         ) / self.computing_availability[self.physical_nodes[i]]
         Power = lambda i: P_idle + (P_max - P_idle) * CPU_usage(i)
         self.Ce = gp.quicksum(
-            self.energy_price[self.physical_nodes[i]][k] * Watts_over_15min_to_MWh * Power(i)
+            self.sigma[i] * self.energy_price[self.physical_nodes[i]][k] * Watts_over_15min_to_MWh * Power(i)
             for i in range(len(self.physical_nodes))
         ) 
         return self.Ce
@@ -398,7 +399,7 @@ class NetworkMapping:
 
             For now, I consider a fix value from Liu2011 which hopefully is still relevant. I use 300J of energy per server to migrate a VNF (with 600MB traffic), and I multiply it by the energy price of the origin and destination servers. \n
         """
-        Joules_to_MWh = 1/1000000 * 900/3600
+        Joules_to_MWh = 1/1000000 * 900/3600 # why 900 again ? it's just Joules so I'm guessing 900 should just disappear
         Watts_over_15min_to_MWh = 1/1000000 * 900/3600 
         P_idle = 65 # Watts
         fix_migration_energy = 300 # Joules
@@ -511,7 +512,7 @@ class NetworkMapping:
         self.generate_node_activation_constraints()
         self.generate_availability_constraints()
         self.generate_access_nodes_constraints()
-        self.generate_migration_constraints()
+        self.generate_delay_constraints()
         self.total_window_objective_function()  # modified
 
     def update_model(self):
