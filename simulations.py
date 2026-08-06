@@ -3,15 +3,55 @@
 """
 
 #from model_class import NetworkMapping, json_parser
-#from optim_on_whole_window import NetworkMapping, json_parser
-from optim_relaxed import NetworkMapping, json_parser
+from optim_relaxed import json_parser
 import matplotlib.pyplot as plt
 import pickle
 import numpy as np
+import pandas as pd
 import time
 import subprocess, os
 
 plt.rcParams["text.usetex"] = True # to use LaTeX in the plots
+
+def make_network_mapping(model, W, **kwargs):
+    """
+        Picks the exact (fully binary) model for W in [1, 4] and the relaxed one for W=0 (static) or W>=5. \n
+        The exact model gives a much tighter Gurobi bound on this range (it lets Gurobi apply RLT cuts on the binary products
+        it would otherwise lose by relaxing), but its branch-and-bound blows up past W=4 -- that's when the relaxed model
+        (built for large W, see optim_relaxed.py) takes over.
+    """
+    if W == 0 or W >= 5:
+        from optim_relaxed import NetworkMapping
+    else:
+        from optim_on_whole_window import NetworkMapping
+    return NetworkMapping(model, W=W, **kwargs)
+
+def get_time_index(prices_csv, N, time_stride, offset):
+    """ reads the datetime index of the price CSV so the per-time-slot plots can show the clock time instead of the time slot $k$ """
+    df = pd.read_csv(f"data/{prices_csv}", sep=",", decimal=".", encoding="utf-8-sig", index_col="datetime", parse_dates=True)
+    return df.index[offset : offset + N * time_stride : time_stride]
+
+
+def format_time_ticks(time_index):
+    """ "%Hh%M" tick labels, with the date prepended if the simulation spans more than one calendar day """
+    fmt = "%d/%m %Hh%M" if time_index[0].date() != time_index[-1].date() else "%Hh%M"
+    return [t.strftime(fmt) for t in time_index]
+
+
+def hyperparams_caption(W_list, time_stride, start_time):
+    """ mini caption recalling the hyperparameters of the figure : the W's compared, the duration of a time slot, the S used by the underlying model (see `make_network_mapping`), and the simulation's start date """
+    step_min = 15 * time_stride
+    return (f"W = {list(W_list)}  --  step = {step_min} min (stride={time_stride})  --  "
+            f"S=1 for W in [1,4], S=W otherwise  --  start = {start_time.strftime('%Y-%m-%d %H:%M %Z')}")
+
+
+def add_hyperparams_caption(fig, W_list, time_stride, start_time):
+    """ adds the mini caption at the bottom-right of the figure, reserving a thin margin below the subplots so it doesn't overlap their tick labels """
+    fig.get_layout_engine().set(rect=(0, 0.035, 1, 1))
+    fig.text(0.995, 0.005, hyperparams_caption(W_list, time_stride, start_time),
+              fontsize=6.5, family='monospace', ha='right', va='bottom',
+              bbox=dict(boxstyle='round', facecolor='white', edgecolor='0.6', alpha=0.85, pad=0.3))
+
 
 def plot_as_emf(figure, **kwargs):
     filepath = kwargs.get('filename', None)
@@ -34,7 +74,7 @@ def run_simulation(model_name, W, N, time_stride=1, offset=0, prices_csv="energy
         This function will run the simulation for a given model and hyperparameters. It will return the overall cost for the whole time horizon.
     """
     model = json_parser(model_name)
-    network_mapping = NetworkMapping(model, W=W, S=1, N=N, time_stride=time_stride, offset=offset, prices_csv=prices_csv)
+    network_mapping = make_network_mapping(model, W, S=1, N=N, time_stride=time_stride, offset=offset, prices_csv=prices_csv)
     network_mapping.run()
     return network_mapping.overall_cost
 
@@ -42,13 +82,16 @@ def trace_cost_curve_for_different_W(model_name, W_list, N, time_stride=1, price
     """
         This function will run the simulation for a given model and trace the cost per k for different values of W. It will return a list of costs for each value of W.
     """
+    time_index = get_time_index(prices_csv, N, time_stride, offset)
+    time_ticks = format_time_ticks(time_index)
+
     cost_curve = []
     overall_costs = []
     optim_duration = []
     delay_curve = []
     for W in W_list:
         model = json_parser(model_name)
-        network_mapping = NetworkMapping(model, W=W, S=1, N=N, time_stride=time_stride, offset=offset, prices_csv=prices_csv)
+        network_mapping = make_network_mapping(model, W, S=1, N=N, time_stride=time_stride, offset=offset, prices_csv=prices_csv)
         start_time = time.time()
         network_mapping.run()
         end_time = time.time()
@@ -67,7 +110,9 @@ def trace_cost_curve_for_different_W(model_name, W_list, N, time_stride=1, price
             ax.plot(range(len(cost_curve[i])), cost_curve[i],label="Static")
         else:
             ax.plot(range(len(cost_curve[i])), cost_curve[i], label=rf"$W={W}$")
-    ax.set_xlabel(r"Time slot $k$")
+    ax.set_xticks(range(N))
+    ax.set_xticklabels(time_ticks, rotation=45, ha='right')
+    ax.set_xlabel(r"Time")
     ax.set_ylabel(r"Cost at time slot $k$")
     ax.set_title(rf"Cost per time slot $k$ for different values of $W$ ($N={N}$)")
     ax.legend()
@@ -105,7 +150,9 @@ def trace_cost_curve_for_different_W(model_name, W_list, N, time_stride=1, price
             pass
     ax3_secondary.plot(range(len(network_mapping.migrations)), network_mapping.migrations, label="Number of migrations", marker='o', linestyle='None', color='tab:purple')
     energy_costs = [network_mapping.cost[k][cost_component] for k in range(N)]
-    ax3.set_xlabel(r"Time slot $k$")
+    ax3.set_xticks(range(N))
+    ax3.set_xticklabels(time_ticks, rotation=45, ha='right')
+    ax3.set_xlabel(r"Time")
     ax3.set_ylabel(r"Cost at time slot $k$")
     ax3_secondary.set_ylabel(r"Number of migrations")
     ax3.set_title(rf"Cost components per time slot $k$ and number of migrations for $W={W_list[-1]}$ ($N={N}$)")
@@ -116,7 +163,9 @@ def trace_cost_curve_for_different_W(model_name, W_list, N, time_stride=1, price
     ax4 = axes[3]
     for i, W in enumerate(W_list):
         ax4.plot(range(len(delay_curve[i])), 1000*np.array(delay_curve[i]), label=rf"$W={W}$")   # *1000 to convert to ms
-    ax4.set_xlabel(r"Time slot $k$")
+    ax4.set_xticks(range(N))
+    ax4.set_xticklabels(time_ticks, rotation=45, ha='right')
+    ax4.set_xlabel(r"Time")
     ax4.set_ylabel(r"Latency (ms)")
     ax4.set_title(rf"Latency vs Time slot $k$ for different values of $W$ ($N={N}$)")
     ax4.legend()
@@ -155,6 +204,8 @@ def trace_cost_curve_for_different_W(model_name, W_list, N, time_stride=1, price
     ax6.set_title(rf"Optimization duration vs $W$ ($N={N}$)")
     ax6.grid()
 
+    add_hyperparams_caption(fig, W_list, time_stride, time_index[0])
+
     plt.tight_layout()
     plt.savefig(f"plots/simulations/cost_curve_W_{model_name}_N{N}.svg")              # saves as a mere svg file
 
@@ -179,6 +230,7 @@ def show_pkl(figname="figure", filename=None):
 if __name__ == "__main__":
     model_name = "nobel-eu"
     W_list = [0, 1, 2, 3, 5]
+    W_list = [2]
     N = 24
     time_stride = 2
     offset = 0

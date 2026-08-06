@@ -34,7 +34,7 @@ def json_parser(model_name: str, file_name = "test_models.json") -> dict:
 
 
 class NetworkMapping:
-    def __init__(self, model: dict, W: int = 1, S: int = 1, N: int = 10, time_stride: int =1, offset: int = 0, prices_csv: str = "energy_prices.csv", graphviz_output_dir: str = "plots/graphs"):
+    def __init__(self, model: dict, W: int = 1, S: int = 1, N: int = 10, time_stride: int =1, offset: int = 0, prices_csv: str = "energy_prices.csv", graphviz_output_dir: str = "plots/graphs", time_limit: float = 60):
         """
             Constructor of the class, takes a dict as input containing the model parameters (physGraph, sfc, availability, requirements etc) and initializes the class attributes accordingly. \n
             The model dict is expected to be imported from the json file using the `json_parser` function. \n
@@ -56,6 +56,7 @@ class NetworkMapping:
         self.gpmodel = gp.Model("mip1")
         #self.gpmodel.Params.MIPGap = 1e-9          # too restrictive
         #self.gpmodel.Params.MIPGapAbs = 1e-12      # too restrictive
+        self.gpmodel.Params.TimeLimit = time_limit  # safety net because sometimes we hit a plateau so the gap becomes too high and the optimization takes forever
         self.optimized_flag = 0
 
         self.physGraph = model["physGraph"]
@@ -111,8 +112,9 @@ class NetworkMapping:
         self.verbose = False
         self.graphviz_output_dir = graphviz_output_dir
 
-        self.max_delay = 400 # s for now --> no constraint for the moment but we will /1000 afterwards
+        self.max_delay = 0.4 # s (400ms SLA per SFC, so might need to adjust when I put more SFCs) TODO: make it scale with the number of SFCs
         #self.max_delay = model["max_delay"]
+        self.migration_downtime = 0.124 # in seconds. Comes from Liu2011 (Dbench benchmark) : closest workload to a NAT/FW/TM VNF apparently (otherwise it's incomparable)
 
         # predictive model
         self.prev_phi_node = np.array([])   # this init serves no purpose, it will be updated after the first optimization but I need to have an overview
@@ -303,6 +305,11 @@ class NetworkMapping:
                         )
                         for ij_index, ij in enumerate(self.physical_links)
                         for vw_index, vw in enumerate(self.logical_links)
+                    )
+                    + gp.quicksum( 
+                        self.migration_downtime * self.xi[k, v_index, i]
+                        for v_index in range(len(self.virtual_nodes))
+                        for i in range(len(self.physical_nodes))
                     ) <= self.max_delay
                 )
             
@@ -460,8 +467,8 @@ class NetworkMapping:
             k = self.k
         Joules_to_MWh = 1 / 1000000 / 3600
         P_idle = 65                         # W
-        fix_migration_energy = 300          # J per server, Liu2011
-        migration_duration = 900*self.time_stride        # seconds, 15 minutes * stride (let's say we don't actualize more often than every 15 minutes, )
+        fix_migration_energy = 375          # Joules, from Liu2011 (750J total split per server)
+        migration_duration = 900*self.time_stride        # seconds, 15 minutes * stride (let's say we don't actualize more often than every 15 minutes)
 
         E_origin = fix_migration_energy + P_idle * migration_duration   # origin server stays on 
         E_dest   = fix_migration_energy                                 # P_idle for destination server is already in energy_cost
@@ -564,6 +571,7 @@ class NetworkMapping:
         self.generate_availability_constraints()
         self.generate_access_nodes_constraints()
         self.generate_migration_constraints()
+        self.refresh_boundary_migration_constraints()
         self.generate_delay_constraints()
         self.total_window_objective_function()  # modified
 
@@ -601,6 +609,13 @@ class NetworkMapping:
                 print(f"Obj: {self.gpmodel.ObjVal:g}")
                 self.optimized_flag = 1
                 # self.plot_graph()
+            elif self.gpmodel.Status == GRB.TIME_LIMIT:
+                if self.gpmodel.SolCount > 0:
+                    print(f"Time limit reached ({self.gpmodel.Params.TimeLimit:g}s) : optimality not proven, "
+                        + f"so we're using the best solution found (gap={self.gpmodel.MIPGap*100:.2f}%, obj={self.gpmodel.ObjVal:g}, bound={self.gpmodel.ObjBound:g})")
+                    self.optimized_flag = 1
+                else:
+                    print(f"Time limit reached ({self.gpmodel.Params.TimeLimit:g}s) without finding any feasible solution") # this shouldn't happen normally but who knows
             elif self.gpmodel.Status == GRB.INFEASIBLE:
                 print("Model is infeasible")
             else:
@@ -648,7 +663,7 @@ class NetworkMapping:
             print(f"{int(self.gpmodel.NodeCount)} nodes explored in the branch and bound tree")
             print(f"{int(self.gpmodel.SolCount)} feasible solutions found")
             print(f"MIP gap: {self.gpmodel.MIPGap} \n")
-        print(f"Cost for each time slot k: {self.cost}")
+        #print(f"Cost for each time slot k: {self.cost}")
         print(f"Overall cost for the whole time horizon: {self.overall_cost}")
 
     def run_nomig(self):

@@ -129,8 +129,9 @@ class NetworkMapping:
 
         self.verbose = False
 
-        self.max_delay = 400 # s for now --> no constraint for the moment but we will /1000 afterwards
+        self.max_delay = 0.4 # s (400ms SLA per SFC, so might need to adjust when I put more SFCs) TODO: make it scale with the number of SFCs
         #self.max_delay = model["max_delay"]
+        self.migration_downtime = 0.124 # in seconds. Comes from Liu2011 (Dbench benchmark) : closest workload to a NAT/FW/TM VNF apparently (otherwise it's incomparable)
 
         # predictive model
         self.prev_phi_node = np.array([])   # this init serves no purpose, it will be updated after the first optimization but I need to have an overview
@@ -292,6 +293,11 @@ class NetworkMapping:
                         self.phi_link[self.logical_links_index[(v, w)], ij_index] *  self.links_distance_dict[ij[0]][ij[1]] * delay_per_100km
                         for ij_index, ij in enumerate(self.physical_links)
                         for v, w in sfc.items()
+                    )
+                    + gp.quicksum( # migration downtime
+                        self.migration_downtime * self.xi[self.virtual_nodes_index[v], i]
+                        for v in sfc.keys()
+                        for i in range(len(self.physical_nodes))
                     ) <= self.max_delay
                 )
         else:
@@ -304,6 +310,11 @@ class NetworkMapping:
                     )
                     for ij_index, ij in enumerate(self.physical_links)
                     for vw_index, vw in enumerate(self.logical_links)
+                )
+                + gp.quicksum( 
+                    self.migration_downtime * self.xi[v_index, i]
+                    for v_index in range(len(self.virtual_nodes))
+                    for i in range(len(self.physical_nodes))
                 ) <= self.max_delay
             )
 
@@ -398,12 +409,12 @@ class NetworkMapping:
             Migration cost for the foresighted model, taking into account the migration of VNFs from one physical server to another. \n
             Here, I consider the cost to be the sum of the energy on each of the origin AND destination servers, multiplied by the energy price of course
 
-            For now, I consider a fix value from Liu2011 which hopefully is still relevant. I use 300J of energy per server to migrate a VNF (with 600MB traffic), and I multiply it by the energy price of the origin and destination servers. \n
+            For now, I consider a fix value from Liu2011 which hopefully is still relevant. I use 375J of energy per server to migrate a VNF (750J total for 600MBps throughput, split evenly between origin and destination), and I multiply it by the energy price of the origin and destination servers. \n
         """
         Joules_to_MWh = 1/1000000 * 900/3600 # why 900 again ? it's just Joules so I'm guessing 900 should just disappear
-        Watts_over_15min_to_MWh = 1/1000000 * 900/3600 
+        Watts_over_15min_to_MWh = 1/1000000 * 900/3600
         P_idle = 65 # Watts
-        fix_migration_energy = 300 # Joules
+        fix_migration_energy = 375 # Joules, Liu2011 (750J total split per server)
         if self.k == 0:
             self.Cm = gp.LinExpr(0) # no migration cost for the first time slot
             return self.Cm
@@ -513,6 +524,9 @@ class NetworkMapping:
         self.generate_node_activation_constraints()
         self.generate_availability_constraints()
         self.generate_access_nodes_constraints()
+        for v_index in range(len(self.virtual_nodes)):
+            for i in range(len(self.physical_nodes)):
+                self.gpmodel.addConstr(self.xi[v_index, i] == 0)
         self.generate_delay_constraints()
         self.total_window_objective_function()  # modified
 
@@ -620,7 +634,7 @@ class NetworkMapping:
             individual_costs_k = self.individual_costs_at_k()
             self.cost.append({"effective_cost": cost_k, **individual_costs_k})
             self.overall_cost += cost_k
-        print(f"Cost for each time slot k: {self.cost}")
+        #print(f"Cost for each time slot k: {self.cost}")
         print(f"Overall cost for the whole time horizon: {self.overall_cost}")
     
     def plot_graph(self, graph_name="physical_graph"):
