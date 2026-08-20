@@ -1,25 +1,26 @@
 """ ABOUT THIS FILE.
     This file runs a batch of simulations whose only purpose is to quantify the gain of the dynamic (foresighted) model over the static one, on many different scenarios instead of a single one.
-    A scenario is a triplet (duration, date, starting hour) and is explored one axis at a time around a baseline case, so that each figure isolates the effect of one parameter :
+    A scenario is a quadruplet (duration, date, starting hour, load factor) and is explored one axis at a time around a baseline case, so that each figure isolates the effect of one parameter :
     - duration : how long the lifecycle of the SFC lasts (number of time slots N),
-    - date     : which day of the price CSV the lifecycle starts on,
-    - starting hour : at what UTC hour of the day it starts (everything here is reasoned in UTC : the price CSV is indexed in UTC, and a "same time slot" only means something if it's the same instant for every country).
-    Each scenario is run for W=0 (static, no migration) and for every W of `W_LIST`, and the gain is the relative saving of the dynamic model with respect to the static one : \n
+    - date : which day of the price CSV the lifecycle starts on,
+    - starting hour : at what UTC hour of the day it starts (everything here is reasoned in UTC : the price CSV is indexed in UTC, and a "same time slot" only means something if it's the same instant for every country),
+    - load factor (rho) : how full the infrastructure is. total CPU demand over total CPU capacity. Contrary to the three other axes, changing rho means changing the model and not only the time window, so each rho gets its own generated entry in load_models.json (that i generated in cost_vs_load.py). The baseline rho reproduces the fill of nobel-eu-1SFC (about 11%).
+    Each scenario is run for W=0 (static, no migration) and for every W of W_LIST, and the gain is the relative saving of the dynamic model with respect to the static one : \n
     $gain(W) = (C_{static} - C_W) / C_{static} * 100$ \n
-    Careful when reading the results : the static model is not a naive baseline, `run_nomig` optimizes the best *fixed* placement knowing the prices of the whole horizon (see `total_window_cost` when self.static). A dynamic model with a short window can therefore be beaten by it, which is exactly what a negative gain means here.
-
-    The batch is meant to be launched from the `Code` folder (the price CSV is read from `data/`), and the results are stored in `simulations_bat/results` so that a batch can be resumed or replotted without running the optimizations again.
+    Precisions about the results : the static model is not so naive a baseline, run_nomig optimizes the best fixed placement knowing the prices of the whole horizon. A dynamic model with a short window can therefore be beaten by it, which is exactly what a negative gain means here.
 
     Created on July 30th, 2026 by Enzo Henry
 """
 
 from optim_relaxed import json_parser
 from stochastic_engine import fetch_energy_prices
+from cost_vs_load import generate_nobel_eu_entry, append_entry_to_json, compute_rho
 import matplotlib
 matplotlib.use("macosx")    # native backend on my machine
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import json
 import pickle
 import time
 from pathlib import Path
@@ -27,22 +28,40 @@ from pathlib import Path
 plt.rcParams["text.usetex"] = True # to use LaTeX in the plots
 plt.rcParams["font.family"] = "serif"
 
+# All prints should go to out_console.txt as well so I can read all of them easily after 
+OUT_CONSOLE = Path(__file__).resolve().parent / "simulations_bat" / "out_console.txt" 
+OUT_CONSOLE.write_text("")
+def print_out(x):
+    print(x)
+    with OUT_CONSOLE.open("a", encoding="utf-8") as f:
+        f.write(f"{x}\n")
+
+
 # configuration of the batch
-MODEL_NAME = "nobel-eu-1SFC"  # we'll switch to "nobel-eu" or "cost266-eu" once this one runs well
+SOURCE_MODEL = "nobel-eu"  # topology, prices and distances the generated models with varying loads are built upon
+MODEL_FILE = "load_models.json"  # where the generated rho models live, created by ensure_load_models if it doesn't exist yet (so it works for you too)
+BATCH_NAME = "nobel-eu-rho"  # only used to name the results file and the figures, the model of each scenario is carried by the case itself
 PRICES_CSV = "energy_prices_batch.csv"  # named differently from my other CSVs, fetched once and reused by every scenario
 FETCH_START = pd.Timestamp("2026-07-08", tz="UTC")  # only used if the CSV doesn't exist yet
 FETCH_END = pd.Timestamp("2026-07-29", tz="UTC")
 
-W_LIST = [1, 3, 5]  # dynamic models to compare to the static one (W=0 is always run as the baseline)
+W_LIST = [1, 2, 3, 4, 5]  # dynamic models to compare to the static one (W=0 is always run as the baseline)
 TIME_STRIDE = 2  # 2 * 15 minutes = 1 time slot per half hour
 
 BASELINE_N = 24 # baseline duration, in time slots
 BASELINE_DATE = None  # if None then it'll be the middle date of the CSV, so the batch doesn't depend on the span I fetched
 BASELINE_HOUR = 0  # midnight UTC
+BASELINE_RHO = 0.11  # baseline load factor : same fill as nobel-eu-1SFC (16 cores demanded / 140 available = 11.4%)
 
 DURATIONS = [6, 12, 24, 48]  # duration axis, in time slots
 DATE_STEP_DAYS = 3  # date axis : one scenario every DATE_STEP_DAYS days of the CSV
 START_HOURS = [0, 6, 12, 18]  # starting hour axis, Zulu time
+RHO_LIST = [0.11, 0.25, 0.50, 0.75]  # load factor axis. Setting it to [BASELINE_RHO] makes it run only the baseline rho in case that's a bad idea to use it
+
+# size of the generated models, see Section 5 of my draft paper
+SFC_LEN = 8
+VNF_CPU, VNF_MEM, VNF_BW = 4, 2, 2
+NODE_CPU, NODE_MEM = 64, 256  # Dell PowerEdge HS5610 (2 x Xeon Gold 6448Y), the SPECpower reference server that I chose in Section 5
 
 RESUME = True  # skip the scenarios already present in the results file
 
@@ -53,6 +72,7 @@ PLOTS_DIR = OUTPUT_DIR / "plots"
 RESULTS_DIR = OUTPUT_DIR / "results"
 GRAPHS_DIR_NAME = "simulations_bat/graphs"  # relative to the model file, as expected by NetworkMapping
 
+TIME_LIMIT = 60 # s
 
 def add_hyperparams_caption(fig, W_list, entries, stride = TIME_STRIDE):
     """ 
@@ -70,26 +90,72 @@ def add_hyperparams_caption(fig, W_list, entries, stride = TIME_STRIDE):
 
 
 def latex_safe(text):
-    """ 
-        escapes underscores so it don't break LaTeX rendering once and for all 
     """
-    return str(text).replace("_", r"\_")
+        escapes underscores and percent signs so it don't break LaTeX rendering once and for all
+    """
+    return str(text).replace("_", r"\_").replace("%", r"\%")
 
 
-def ensure_prices_csv(prices_csv = PRICES_CSV, model_name = MODEL_NAME, start = FETCH_START, end = FETCH_END):
-    """ 
+def n_sfc_for_rho(rho, cpu_req = None, cpu_avail = None, sfc_len = None, n_nodes = None):
+    """
+        Number of SFC instances whose CPU demand gets as close as possible to rho from the bottom \n
+        Only the real VNFs of each SFC are counted cause the two fictitious ones carry no load.
+    """
+    # baseline if not sth else
+    if cpu_req is None:
+        cpu_req = VNF_CPU
+    if cpu_avail is None:
+        cpu_avail = NODE_CPU
+    if sfc_len is None:
+        sfc_len = SFC_LEN
+    if n_nodes is None:
+        n_nodes = len(json_parser(SOURCE_MODEL)["computing_availability"])
+    n = int(rho * n_nodes * cpu_avail // ((sfc_len - 2) * cpu_req))
+    return max(n, 1)
+
+
+def ensure_load_models(rho_list = None, model_file = MODEL_FILE, seed = 0):
+    """
+        Makes sure one model exists in model_file for each target load factor, generating the missing ones with cost_vs_load.generate_nobel_eu_entry.\n
+        Bandwidth availability is set to VNF_BW * n_sfc so that no physical link can ever saturate
+
+        Returns: dict {rho_target: {"model_name":..., "n_sfc":..., "rho":...}} in the order of rho_list
+    """
+    rho_list = RHO_LIST if rho_list is None else rho_list
+    n_nodes = len(json_parser(SOURCE_MODEL)["computing_availability"])
+    existing = set()
+    if Path(model_file).exists():
+        with open(model_file) as file:
+            existing = {model["model_name"] for model in json.load(file)["test_models"]}
+
+    models = {}
+    for rho_target in rho_list:
+        n_sfc = n_sfc_for_rho(rho_target, n_nodes=n_nodes)
+        model_name = f"{SOURCE_MODEL}-{n_sfc}SFC"
+        rho = compute_rho(n_sfc, VNF_CPU, VNF_MEM, NODE_CPU, NODE_MEM, SFC_LEN, n_nodes)[2]
+        if model_name not in existing:
+            entry = generate_nobel_eu_entry(n_sfc, cpu_req=VNF_CPU, mem_req=VNF_MEM, bw_req=VNF_BW, cpu_avail=NODE_CPU, mem_avail=NODE_MEM, bw_avail=VNF_BW * n_sfc, sfc_len=SFC_LEN, model_name=model_name, source_model=SOURCE_MODEL, seed=seed)
+            append_entry_to_json(entry, model_file)
+            existing.add(model_name)
+        models[rho_target] = {"model_name": model_name, "n_sfc": n_sfc, "rho": rho}
+        print_out(f"rho target {rho_target*100}% -> {n_sfc} SFCs ({n_sfc * (SFC_LEN - 2)} VNFs), actual rho = {rho:.1%}, the model is named '{model_name}'")
+    return models
+
+
+def ensure_prices_csv(prices_csv = PRICES_CSV, model_name = SOURCE_MODEL, start = FETCH_START, end = FETCH_END):
+    """
         fetches the price CSV from ENTSO-E if it's not there yet (only the model's countries), and returns it as a dataframe 
     """
     global PRICES_DF # first time I use global in a python program haha, hope it works
     csv_path = Path("data") / prices_csv
     if not csv_path.exists():
-        print(f"Theres no '{csv_path}', fetching {start.date()} -> {end.date()} from the ENTSO-E API")
+        print_out(f"Theres no '{csv_path}', fetching {start.date()} -> {end.date()} from the ENTSO-E API")
         model = json_parser(model_name)
         country_list = list(set(model["node_country"].values()))
         fetch_energy_prices(start=start, end=end, country_list=country_list, csv_file_name=prices_csv)
 
     df = pd.read_csv(csv_path, sep=",", decimal=".", encoding="utf-8-sig", index_col="datetime", parse_dates=True)
-    print(f"{len(df)} rows available, from {df.index[0]} to {df.index[-1]} and {len(df.columns)} zones")
+    print_out(f"{len(df)} rows available, from {df.index[0]} to {df.index[-1]} and {len(df.columns)} zones")
     PRICES_DF = df
     return df
 
@@ -118,23 +184,32 @@ def price_dispersion(df, model, N, W, offset, stride = TIME_STRIDE):
     return float((window.max(axis=1) - window.min(axis=1)).mean())
 
 
-def build_case_list(df, durations = DURATIONS, start_hours = START_HOURS, date_step_days = DATE_STEP_DAYS, baseline_N = BASELINE_N, baseline_date = BASELINE_DATE, baseline_hour = BASELINE_HOUR):
-    """ 
-        builds the scenario list, one axis at a time around a baseline case (the baseline itself belongs to all three axes, so it's only optimized once) 
+def build_case_list(df, durations = DURATIONS, start_hours = START_HOURS, date_step_days = DATE_STEP_DAYS, rho_list = None, models = None, baseline_N = BASELINE_N, baseline_date = BASELINE_DATE, baseline_hour = BASELINE_HOUR, baseline_rho = BASELINE_RHO):
     """
+        builds the scenario list, one axis at a time around a baseline case (the baseline itself belongs to all four axes, so it's only optimized once) \n
+        models is the dict returned by ensure_load_models : it maps each target rho to the generated model that realizes it
+        returns cases = [{"case_id":..., "axis":..., "value":..., "label":..., "N":..., "date":..., "hour":..., "offset":..., "model_name":...}, ...]
+    """ 
+    if rho_list is None:
+        rho_list = RHO_LIST
+    if models is None:
+        models = ensure_load_models(rho_list) 
+    assert baseline_rho in models, f"BASELINE_RHO={baseline_rho} must belong to RHO_LIST={rho_list}"
+    baseline_model = models[baseline_rho]["model_name"]
+
     dates = sorted(set(df.index.date))
     dates = dates[:-1]
     if baseline_date is None:
         baseline_date = dates[len(dates)//2]  # the middle of the CSV, so the batch doesn't depend on the span I fetched
-    print(f"Baseline scenario : N={baseline_N} time slots, starting on {baseline_date} at {baseline_hour:02d}h UTC")
+    print_out(f"Baseline scenario : N={baseline_N} time slots, starting on {baseline_date} at {baseline_hour:02d}h UTC, rho={models[baseline_rho]['rho']:.1%} ('{baseline_model}')")
 
     cases = []
-    def add_case(axis, value, label, N, date, hour):
+    def add_case(axis, value, label, N, date, hour, model_name = None):
         offset = offset_from_datetime(df, date, hour)
         if not case_fits(df, N, max(W_LIST), offset):
-            print(f"Scenario {axis}={label} cancelled : not enough rows left in the CSV after {date} {hour:02d}h")
+            print_out(f"Scenario {axis}={label} cancelled : not enough rows left in the CSV after {date} {hour:02d}h")
             return
-        cases.append({"case_id": f"{axis}_{label}", "axis": axis, "value": value, "label": label, "N": N, "date": str(date), "hour": hour, "offset": offset})
+        cases.append({"case_id": f"{axis}_{label}", "axis": axis, "value": value, "label": label, "N": N, "date": str(date), "hour": hour, "offset": offset, "model_name": baseline_model if model_name is None else model_name, "model_file": MODEL_FILE})
 
     for N in durations:
         add_case("duration", N, str(N), N, baseline_date, baseline_hour)
@@ -142,6 +217,9 @@ def build_case_list(df, durations = DURATIONS, start_hours = START_HOURS, date_s
         add_case("date", pd.Timestamp(date), date.strftime("%m-%d"), baseline_N, date, baseline_hour)
     for hour in start_hours:
         add_case("hour", hour, f"{hour:02d}h", baseline_N, baseline_date, hour)
+    for rho_target in rho_list:  # this axis changes the model itself, not the time window
+        model = models[rho_target]
+        add_case("rho", model["rho"], f"{model['rho']:.0%}", baseline_N, baseline_date, baseline_hour, model_name=model["model_name"])
 
     return cases
 
@@ -149,21 +227,23 @@ def build_case_list(df, durations = DURATIONS, start_hours = START_HOURS, date_s
 def make_network_mapping(model, W, **kwargs):
     """ 
         exact binary model for W at or below 4, relaxed one for W=0 or W>=5. The exact model gives a tighter bound but its branch-and-bound blows up past W=4 
+        Note (TODO?): this was observed on the previous version of the model (1SFC on a simpler model), I might have to check if it's still relevant now, even more considering that we now have a timeout
     """
     if W == 0 or W >= 5:
         from optim_relaxed import NetworkMapping
     else:
         from optim_on_whole_window import NetworkMapping
-    return NetworkMapping(model, W=W, **kwargs)
+    return NetworkMapping(model, W=W, time_limit=TIME_LIMIT, **kwargs)
 
 
-def run_case(case, W, model_name = MODEL_NAME, prices_csv = PRICES_CSV, stride = TIME_STRIDE):
-    """ 
-        runs one (scenario, W) couple and returns everything the figures need -- W=0 is the static baseline the gain is computed against 
+def run_case(case, W, prices_csv = PRICES_CSV, stride = TIME_STRIDE):
     """
-    model = json_parser(model_name)
-    network_mapping = make_network_mapping(model, W, S=1, N=case["N"], time_stride=stride, offset=case["offset"],
-                                            prices_csv=prices_csv, graphviz_output_dir=GRAPHS_DIR_NAME)
+        runs one (scenario, W) couple and returns everything the figures need -- W=0 is the static baseline the gain is computed against \n
+        the model is carried by the case itself, since the rho axis makes it vary from one scenario to the next
+        returns: a dict with the case's parameters and the results 
+    """
+    model = json_parser(case["model_name"], case.get("model_file", MODEL_FILE)) # case["model_file"] or MODEL_FILE by default if not in it
+    network_mapping = make_network_mapping(model, W, S=1, N=case["N"], time_stride=stride, offset=case["offset"], prices_csv=prices_csv)
     network_mapping.plot_graph = lambda *args, **kwargs: None   # to overwrite my plot_graph function, the batch would render thousands of svg files otherwise
     network_mapping.verbose = False
 
@@ -187,43 +267,43 @@ def run_case(case, W, model_name = MODEL_NAME, prices_csv = PRICES_CSV, stride =
     }
 
 
-def run_batch(cases, W_list = W_LIST, model_name = MODEL_NAME, prices_csv = PRICES_CSV, resume = RESUME):
-    """ 
+def run_batch(cases, W_list = W_LIST, batch_name = BATCH_NAME, prices_csv = PRICES_CSV, resume = RESUME):
+    """
         runs every (scenario, W) couple, W=0 included, saving after each one so the batch can be resumed if interrupted \n
         Function made with the help of Claude AI
     """
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
-    results_path = RESULTS_DIR / f"batch_{model_name}.pkl"
+    results_path = RESULTS_DIR / f"batch_{batch_name}.pkl"
 
     results = []
     if resume and results_path.exists():
         with open(results_path, "rb") as file:
             results = pickle.load(file)
-        print(f"{len(results)} results loaded from '{results_path.name}', the corresponding scenarios will be skipped")
+        print_out(f"{len(results)} results loaded from '{results_path.name}', the corresponding scenarios will be skipped")
     done = {(result["case_id"], result["W"]) for result in results}
-    computed = {(result["N"], result["offset"], result["W"]): result for result in results}   # what has already been optimized, whatever the axis it belonged to
+    computed = {(result["model_name"], result["N"], result["offset"], result["W"]): result for result in results}   # what has already been optimized, whatever the axis it belonged to -- the model is part of the key since the rho axis makes it vary
 
     todo = [(case, W) for case in cases for W in [0] + list(W_list) if (case["case_id"], W) not in done]
-    print(f"{len(todo)} optimizations to run\n")
+    print_out(f"{len(todo)} optimizations to run\n")
     for index, (case, W) in enumerate(todo):
-        print(f"===== [{index+1}/{len(todo)}] scenario {case['case_id']} (N={case['N']}, {case['date']} {case['hour']:02d}h) with W={W}")
-        key = (case["N"], case["offset"], W)
-        if key in computed: # the baseline scenario belongs to the three axes, so it is optimized once and reused by the others
+        print_out(f"===== [{index+1}/{len(todo)}] scenario {case['case_id']} ({case['model_name']}, N={case['N']}, {case['date']} {case['hour']:02d}h) with W={W}")
+        key = (case["model_name"], case["N"], case["offset"], W)
+        if key in computed: # the baseline scenario belongs to the four axes, so it is optimized once and reused by the others
             result = {**computed[key], **case, "W": W}
-            print(f"      identical to the scenario '{computed[key]['case_id']}' already optimized, reused as is\n")
+            print_out(f"      identical to the scenario '{computed[key]['case_id']}' already optimized, reused as is\n")
         else:
             try:
-                result = run_case(case, W, model_name=model_name, prices_csv=prices_csv)
+                result = run_case(case, W, prices_csv=prices_csv)
             except Exception as e: # a single failing scenario must not throw away a batch that has been running for hours
-                print(f"      /!\\ scenario dropped, the optimization raised : {e}\n")
+                print_out(f"      /!\\ scenario dropped, the optimization raised : {e}\n")
                 continue
             computed[key] = result
-            print(f"      overall cost = {result['overall_cost']:.6f}, {result['migrations']} migrations, {result['simulation_duration']:.1f} s\n")
+            print_out(f"overall cost = {result['overall_cost']:.6f}, {result['migrations']} migrations, {result['simulation_duration']:.1f} s\n")
         results.append(result)
         with open(results_path, "wb") as file:
             pickle.dump(results, file)
 
-    print(f"Batch finished, {len(results)} results saved in '{results_path}'")
+    print_out(f"Batch finished, {len(results)} results saved in '{results_path}'")
     return results
 
 
@@ -248,13 +328,13 @@ def gain_table(results):
     return table
 
 
-def plot_axis(results, axis, xlabel, title, model_name = MODEL_NAME):
+def plot_axis(results, axis, xlabel, title, model_name = BATCH_NAME):
     """ 
         plots overall cost, gain, migrations and solving time for one axis of the batch, and saves the figure (svg and pkl) 
     """
     table = gain_table(results)
     if axis not in table:
-        print(f"No result for the '{axis}' axis, I skip the figure")
+        print_out(f"No result for the '{axis}' axis, I skip the figure")
         return
     W_list = sorted(table[axis].keys())
     reference = max(table[axis].values(), key=len)  # the most complete W, in case a scenario had to be dropped for another one
@@ -324,7 +404,7 @@ def plot_axis(results, axis, xlabel, title, model_name = MODEL_NAME):
     return fig
 
 
-def plot_summary(results, model_name = MODEL_NAME):
+def plot_summary(results, model_name = BATCH_NAME):
     """ 
         plots the gain distribution over the whole batch and what it correlates with (migrations, price spread), saves the figure (svg + pkl) 
     """
@@ -389,15 +469,15 @@ def print_summary(results):
     """
     table = gain_table(results)
     W_list = sorted({W for axis in table for W in table[axis]})
-    print("\n===== Gain of the dynamic model over the static one")
-    print(f"{'axis':10s} " + " ".join(f"{'W='+str(W):>12s}" for W in W_list))
+    print_out("\n===== Gain of the dynamic model over the static one")
+    print_out(f"{'axis':10s} " + " ".join(f"{'W='+str(W):>12s}" for W in W_list))
     for axis in table:
         gains = {W: [entry["gain"] for entry in table[axis].get(W, [])] for W in W_list}
-        print(f"{axis:10s} " + " ".join(f"{np.mean(gains[W]):11.3f}%" for W in W_list))
+        print_out(f"{axis:10s} " + " ".join(f"{np.mean(gains[W]):11.3f}%" for W in W_list))
     gains = {W: [entry["gain"] for axis in table for entry in table[axis].get(W, [])] for W in W_list}
-    print(f"{'overall':10s} " + " ".join(f"{np.mean(gains[W]):11.3f}%" for W in W_list))
-    print(f"{'best case':10s} " + " ".join(f"{np.max(gains[W]):11.3f}%" for W in W_list))
-    print(f"{'worst case':10s} " + " ".join(f"{np.min(gains[W]):11.3f}%" for W in W_list))
+    print_out(f"{'overall':10s} " + " ".join(f"{np.mean(gains[W]):11.3f}%" for W in W_list))
+    print_out(f"{'best case':10s} " + " ".join(f"{np.max(gains[W]):11.3f}%" for W in W_list))
+    print_out(f"{'worst case':10s} " + " ".join(f"{np.min(gains[W]):11.3f}%" for W in W_list))
 
 
 def save_figure(fig, figname = "figure"):
@@ -406,7 +486,7 @@ def save_figure(fig, figname = "figure"):
     fig.savefig(PLOTS_DIR / f"{figname}.svg", format="svg")
     with open(PLOTS_DIR / f"{figname}.pkl", "wb") as file:
         pickle.dump(fig, file)
-    print(f"Figure saved as '{figname}.svg' and '{figname}.pkl' in {PLOTS_DIR}")
+    print_out(f"Figure saved as '{figname}.svg' and '{figname}.pkl' in {PLOTS_DIR}")
 
 
 def show_pkl(figname = "figure"):
@@ -417,8 +497,9 @@ def show_pkl(figname = "figure"):
 
 
 if __name__ == "__main__":
-    prices_df = ensure_prices_csv() 
-    cases = build_case_list(prices_df)
+    prices_df = ensure_prices_csv()
+    models = ensure_load_models()   # generates the missing rho models in load_models.json
+    cases = build_case_list(prices_df, models=models)
 
     results = run_batch(cases)
 
@@ -426,7 +507,8 @@ if __name__ == "__main__":
     plot_axis(results, "duration", r"Duration $N$ (time slots)", "Duration")
     plot_axis(results, "date", r"Starting date", "Date")
     plot_axis(results, "hour", r"Starting hour (UTC)", "Starting hour")
+    plot_axis(results, "rho", r"Load factor $\rho$", "Load factor")
     plot_summary(results)
     plt.show()
 
-    # show_pkl(f"gain_summary_{MODEL_NAME}")
+    # show_pkl(f"gain_summary_{BATCH_NAME}")

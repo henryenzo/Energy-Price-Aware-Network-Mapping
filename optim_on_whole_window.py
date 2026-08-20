@@ -112,9 +112,9 @@ class NetworkMapping:
         self.verbose = False
         self.graphviz_output_dir = graphviz_output_dir
 
-        self.max_delay = 0.4 # s (400ms SLA per SFC, so might need to adjust when I put more SFCs) TODO: make it scale with the number of SFCs
+        self.max_delay = 0.3 # s, 300ms SLA per SFC : one constraint is generated per SFC now
         #self.max_delay = model["max_delay"]
-        self.migration_downtime = 0.124 # in seconds. Comes from Liu2011 (Dbench benchmark) : closest workload to a NAT/FW/TM VNF apparently (otherwise it's incomparable)
+        self.migration_downtime = 0.228 # in seconds. Comes from Liu2011 (Dbench benchmark, 124ms scaled to a 2GB VNF) : closest workload to a NAT/FW/TM VNF apparently (otherwise it's incomparable)
 
         # predictive model
         self.prev_phi_node = np.array([])   # this init serves no purpose, it will be updated after the first optimization but I need to have an overview
@@ -191,6 +191,7 @@ class NetworkMapping:
             for i_index in range(len(self.physical_nodes)):
                 for v in range(len(self.virtual_nodes)):
                     self.gpmodel.addConstr(self.sigma[k, i_index] >= self.phi_node[k, v, i_index])
+                self.gpmodel.addConstr(self.sigma[k, i_index] <= gp.quicksum(self.phi_node[k, v, i_index] for v in range(len(self.virtual_nodes)))) # needed when the price is negative : otherwise switching empty servers on would earn money
 
     def generate_availability_constraints(self):
         
@@ -272,43 +273,66 @@ class NetworkMapping:
                     ]
         self.gpmodel.update()
 
+    def sfc_partition(self):
+        """
+            Splits the virtual graph into its individual SFCs, taken as the weakly connected components of the
+            logical links. Deriving them from the structure of the graph rather than from the VNF names keeps this
+            working for every naming convention I used so far ("v1"/"v1'", "s1v1", "v1_1"...).
+
+            Returns: list of dicts {"nodes": [indices in self.virtual_nodes], "links": [indices in self.logical_links]}
+        """
+        if getattr(self, "_sfc_partition", None) is not None:
+            return self._sfc_partition
+
+        parent = {v: v for v in self.virtual_nodes}     # union-find, the cheapest way to get the connected components
+        def find(x):
+            while parent[x] != x:
+                parent[x] = parent[parent[x]]
+                x = parent[x]
+            return x
+        for v, w in self.logical_links:
+            root_v, root_w = find(v), find(w)
+            if root_v != root_w:
+                parent[root_v] = root_w
+
+        groups = {}
+        for v in self.virtual_nodes:
+            groups.setdefault(find(v), {"nodes": [], "links": []})["nodes"].append(self.virtual_nodes_index[v])
+        for link_index, (v, w) in enumerate(self.logical_links):
+            groups[find(v)]["links"].append(link_index)
+
+        self._sfc_partition = list(groups.values())
+        return self._sfc_partition
+
+
     def generate_delay_constraints(self):
         """
-            Generates the constraints on the total delay introduced by the routing of the SFC onto the physical network.\n
-            The formula that I'll use is : $\sum_{vw\in logical_links of s} \sum_{ij\in physical_links} phi_link_{vw:ij} * d_{ij} <= max_delay(s)  forall SFC s$ \n
-            for now, fix delay but then I'll enlarge it to be an SFC parameter. TODO !!!
+            Generates the constraints on the total delay introduced by the routing of the SFCs onto the physical network.\n
+            The formula is : $\sum_{vw\in logical_links of s} \sum_{ij\in physical_links} phi_link_{vw:ij} * d_{ij} <= max_delay  forall SFC s$ \n
+            One constraint is generated per SFC and per time step, so max_delay is a per-chain SLA 
             If this constraint isn't verified, the optimizer will cancel the mapping, so TODO make it non destructive
 
-            Any estimation of the delay required for the transmission of a packet based on the distance between nodes will be rough, because it depends on the actual network topology and traffic conditions. We may consider a reasonable and usual value of a 0.5ms delay per 100km of otpical fiber + 2ms of switch per hop + more if hosting a VNF
+            Any estimation of the delay required for the transmission of a packet based on the distance between nodes will be rough, because it depends on the actual network topology and traffic conditions. We may consider a reasonable and usual value of a 0.5ms delay per 100km of otpical fiber + 50us of switching per hop
         """
         delay_per_100km = 0.0005 # 0.5ms per 100km of optical fiber
-        delay_per_hop = 0.001 # 1ms per hop (switching delay)
+        delay_per_hop = 0.00005 # 50us per hop (switching delay)
         delay_per_VNF = 0.002 # 2ms per VNF hosting (processing delay, idk if it's realistic)
 
-        if isinstance(self.virtualGraph, list): #if we differenciate SFCs
-            for sfc in self.virtualGraph:
-                self.gpmodel.addConstr(
-                    gp.quicksum(
-                        self.phi_link[self.logical_links_index[(v, w)], ij_index] * self.links_distance_dict[ij[0]][ij[1]] * delay_per_100km
-                        for ij_index, ij in enumerate(self.physical_links)
-                        for v, w in sfc.items()
-                    ) <= self.max_delay
-                )
-        else:
+        for sfc in self.sfc_partition():
             for k in range(self.W):
                 self.gpmodel.addConstr(
                     gp.quicksum(
                         self.phi_link[k, vw_index, ij_index] * (
                             self.links_distance_dict[ij[0]][ij[1]] * delay_per_100km
                             + delay_per_hop # corresponds to the switching delay at the physical nodes
-                            + self.phi_node[k, self.virtual_nodes_index[vw[0]], self.physical_nodes_index[ij[0]]] * delay_per_VNF
+                            # + self.phi_node[k, self.virtual_nodes_index[self.logical_links[vw_index][0]], self.physical_nodes_index[ij[0]]] * delay_per_VNF # quadratic constraint
                         )
                         for ij_index, ij in enumerate(self.physical_links)
-                        for vw_index, vw in enumerate(self.logical_links)
+                        for vw_index in sfc["links"]
                     )
-                    + gp.quicksum( 
+                    + gp.quicksum( # migration downtime of the VNFs of this SFC only
                         self.migration_downtime * self.xi[k, v_index, i]
-                        for v_index in range(len(self.virtual_nodes))
+                        for v_index in sfc["nodes"]
                         for i in range(len(self.physical_nodes))
                     ) <= self.max_delay
                 )
@@ -317,13 +341,13 @@ class NetworkMapping:
     def energy_cost(self, k=None, w=None): 
         """
             REALISTIC ENERGY COST FUNCTION :\n
-            From the real energy price in Europe, the current CPU load, and considering the servers to use Intel i7 14th gen CPUs, we can estimate the energy cost for each physical server at each time slot k: \n
+            From the real energy price in Europe, the current CPU load, and considering the servers to be the SPECpower reference Dell PowerEdge HS5610, we can estimate the energy cost for each physical server at each time slot k: \n
             $C_e(k) = \sum_{i\in physical_nodes} energy_price_i(k) * P_i(k)$ \n
             with:\n
             $P_i(k) = P_idle + (P_max - P_idle) * CPU_usage_i(k)$ \n
             $CPU_usage_i(k) = \sum_{v\in VNFs} phi_node_{v,i}(k) * computing_requirement_v / computing_availability_i$ \n
         """
-        # we used to depend on a parameter from the json but now I use Intel i7 14th gen specifications and CPU usage
+        # we used to depend on a parameter from the json but now I use the Dell PowerEdge HS5610 SPECpower specifications and CPU usage
         # depends on k 
         if k is None:
             k = self.k
@@ -335,8 +359,8 @@ class NetworkMapping:
         #     ) for i in range(len(self.physical_nodes))
         # )
         Watts_over_DeltaT_to_MWh = 1/1000000 / 3600 * 900 * self.time_stride # 900 seconds = 15 minutes
-        P_idle = 65 # Watts
-        P_max = 219 # Watts
+        P_idle = 122 # Watts
+        P_max = 602 # Watts
         CPU_usage = lambda i: gp.quicksum(
             self.phi_node[w, v, i] * self.computing_requirements[self.virtual_nodes[v]] 
             for v in range(len(self.virtual_nodes))
@@ -390,13 +414,13 @@ class NetworkMapping:
         if w is None:
             w = k - self.k
         delay_per_100km = 0.0005 # 0.5ms per 100km of optical fiber
-        delay_per_hop = 0.001 # 1ms per hop (switching delay)
+        delay_per_hop = 0.00005 # 50us per hop (switching delay)
         delay_per_VNF = 0.002 # 2ms per VNF hosting (processing delay, idk if it's realistic)
         self.total_link_delay = gp.quicksum(
             self.phi_link[w, vw_index, ij_index] * (
                 self.links_distance_dict[ij[0]][ij[1]] * delay_per_100km
                 + delay_per_hop # corresponds to the switching delay at the physical nodes
-                + self.phi_node[w, self.virtual_nodes_index[vw[0]], self.physical_nodes_index[ij[0]]] * delay_per_VNF
+                # + self.phi_node[w, self.virtual_nodes_index[vw[0]], self.physical_nodes_index[ij[0]]] * delay_per_VNF # quadratic constraint
             )
             for ij_index, ij in enumerate(self.physical_links)
             for vw_index, vw in enumerate(self.logical_links)
@@ -405,7 +429,7 @@ class NetworkMapping:
 
     def link_delay_cost(self, k=None, w=None, coefficient=0.0000001):
         """
-           This will be our fictious cost to reduce delay. This should not appear in the effective cost (effective_cost_at_k) but will be in the objective function to reduce the delay
+           This was our fictious cost to reduce delay. It is disabled : the function returns 0 so that nothing but the energy and the migration appears in the objective
            It is supposed to be negligible compared to the other costs, but it will be used to make the optimizer choose the shortest paths for the logical links, and thus simplify the final graph (many path are available). \n
         """
         return gp.LinExpr(0) # so negligible that it won't be taken into account in the optimization, but still takes time to compute
@@ -414,61 +438,13 @@ class NetworkMapping:
         self.Cl = coefficient * self.link_delay(k=k, w=w)
         return self.Cl
     
-    def old_migration_cost(self, k=None, coefficient=1):
-        """
-            REALISTIC MIGRATION COST FUNCTION :\n
-            Migration cost for the foresighted model, taking into account the migration of VNFs from one physical server to another. \n
-            Here, I consider the cost to be the sum of the energy on each of the origin AND destination servers, multiplied by the energy price of course
-
-            For now, I consider a fix value from Liu2011 which hopefully is still relevant. I use 300J of energy per server to migrate a VNF (with 600MB traffic), and I multiply it by the energy price of the origin and destination servers. \n
-        """
-        if k is None:
-            k = self.k
-        Joules_to_MWh = 1 / 1000000 / 3600
-        Watts_over_DeltaT_to_MWh = 1/1000000 / 3600 * 900 * self.time_stride # 900 seconds = 15 minutes
-        P_idle = 65 # Watts
-        fix_migration_energy = 300 # Joules
-        if k == 0 and self.k == 0:
-            self.Cm = gp.LinExpr(0) # no migration cost for the first time slot
-            return self.Cm
-
-        if k == self.k:
-            self.Cm = gp.quicksum(
-                coefficient * Joules_to_MWh * fix_migration_energy 
-                * (self.energy_price[i][k] + self.energy_price[j][k])
-                * self.xi[0, self.virtual_nodes_index[v], self.physical_nodes_index[j]]
-                * self.prev_phi_node[0, self.virtual_nodes_index[v], self.physical_nodes_index[i]]
-                for v in self.virtual_nodes # for each VNF
-                for i in self.physical_nodes # for the origin node
-                for j in self.physical_nodes # for the destination node
-            )+ gp.quicksum(
-                self.energy_price[self.physical_nodes[i]][k] * Watts_over_DeltaT_to_MWh * P_idle * self.xi[0, v, i]
-                for v in range(len(self.virtual_nodes))
-                for i in range(len(self.physical_nodes))
-            )
-        elif k >= self.k + 1:
-            self.Cm = gp.quicksum(
-                coefficient * Joules_to_MWh * fix_migration_energy 
-                * (self.energy_price[i][k] + self.energy_price[j][k])
-                * self.xi[k-self.k, self.virtual_nodes_index[v], self.physical_nodes_index[j]]
-                * self.phi_node[k - self.k - 1, self.virtual_nodes_index[v], self.physical_nodes_index[i]]
-                for v in self.virtual_nodes # for each VNF
-                for i in self.physical_nodes # for the origin node
-                for j in self.physical_nodes # for the destination node
-            )+ gp.quicksum(
-                self.energy_price[self.physical_nodes[i]][k] * Watts_over_DeltaT_to_MWh * P_idle * self.xi[k-self.k, v, i]
-                for v in range(len(self.virtual_nodes))
-                for i in range(len(self.physical_nodes))
-            )
-        return self.Cm
-
     def migration_cost(self, k=None, coefficient=1):
         if k is None:
             k = self.k
         Joules_to_MWh = 1 / 1000000 / 3600
-        P_idle = 65                         # W
-        fix_migration_energy = 375          # Joules, from Liu2011 (750J total split per server)
-        migration_duration = 900*self.time_stride        # seconds, 15 minutes * stride (let's say we don't actualize more often than every 15 minutes)
+        P_idle = 122                         # W
+        fix_migration_energy = 663          # Joules, from Liu2011 (Dbench, 1326J total for a 2GB VNF, split per server)
+        migration_duration = 42.6        # seconds, from Liu2011 (Dbench migration latency scaled to a 2GB VNF)
 
         E_origin = fix_migration_energy + P_idle * migration_duration   # origin server stays on 
         E_dest   = fix_migration_energy                                 # P_idle for destination server is already in energy_cost
@@ -657,7 +633,7 @@ class NetworkMapping:
             individual_costs_k = self.individual_costs_at_k()
             self.cost.append({"effective_cost": cost_k, **individual_costs_k}) # list of dicts, each dict for 1 time slot k
             self.placement.append({v: i for v in self.virtual_nodes for i in self.physical_nodes if self.phi_node.X[0, self.virtual_nodes_index[v], self.physical_nodes_index[i]] == 1})
-            self.migrations.append(int(self.xi.X.sum())) # number of migrations for this time slot k
+            self.migrations.append(int(np.rint(self.xi.X[0]).sum())) # number of migrations for this time slot k
             self.overall_cost += cost_k
             print(f"Cost for time slot k={k}: {cost_k}")
             print(f"{int(self.gpmodel.NodeCount)} nodes explored in the branch and bound tree")
