@@ -58,6 +58,7 @@ def json_parser(model_name: str, file_name = "test_models.json") -> dict:
 
 
 class NetworkMapping:
+
     def __init__(self, model: dict, W: int = 1, S: int = 1, N: int = 10, time_stride: int =1, offset: int = 0, prices_csv: str = "energy_prices.csv", graphviz_output_dir: str = "plots/graphs"):
         """
             Constructor of the class, takes a dict as input containing the model parameters (physGraph, sfc, availability, requirements etc) and initializes the class attributes accordingly. \n
@@ -129,7 +130,7 @@ class NetworkMapping:
 
         self.verbose = False
 
-        self.max_delay = 0.3 # s, 300ms SLA per SFC : one constraint is generated per SFC now
+        self.max_delay = 0.15 # s, 150ms SLA per SFC : one constraint is generated per SFC now
         #self.max_delay = model["max_delay"]
         self.migration_downtime = 0.228 # in seconds. Comes from Liu2011 (Dbench benchmark, 124ms scaled to a 2GB VNF) : closest workload to a NAT/FW/TM VNF apparently (otherwise it's incomparable)
 
@@ -210,23 +211,22 @@ class NetworkMapping:
             )
 
     def generate_availability_constraints(self):
-        # Availability constraints for the physical servers only, access nodes excluded in the range
+        # Availability constraints, applied to every physical node since access nodes can host VNFs too
         for i_index, i in enumerate(self.physical_nodes):
-            if i not in self.access_nodes: # just erase this line to apply the constraints to access nodes as well
-                # In terms of computing resource
-                self.gpmodel.addConstr(
-                    gp.quicksum(
-                        self.phi_node[v_index, i_index] * self.computing_requirements[v] 
-                            for v_index, v in enumerate(self.virtual_nodes)
-                    ) <=  self.computing_availability[self.physical_nodes[i_index]]
-                )
-                # In terms of memory resource
-                self.gpmodel.addConstr(
-                    gp.quicksum(
-                        self.phi_node[v_index, i_index] * self.memory_requirements[v] 
-                            for v_index, v in enumerate(self.virtual_nodes)
-                    ) <=  self.memory_availability[self.physical_nodes[i_index]]
-                )
+            # In terms of computing resource
+            self.gpmodel.addConstr(
+                gp.quicksum(
+                    self.phi_node[v_index, i_index] * self.computing_requirements[v] 
+                        for v_index, v in enumerate(self.virtual_nodes)
+                ) <=  self.computing_availability[self.physical_nodes[i_index]]
+            )
+            # In terms of memory resource
+            self.gpmodel.addConstr(
+                gp.quicksum(
+                    self.phi_node[v_index, i_index] * self.memory_requirements[v] 
+                        for v_index, v in enumerate(self.virtual_nodes)
+                ) <=  self.memory_availability[self.physical_nodes[i_index]]
+            )
 
         # And in terms of bandwidth usage
         for i, j in self.physical_links:
@@ -247,10 +247,6 @@ class NetworkMapping:
                     self.physical_nodes_index[access_node[1]]
                 ] == 1
             )
-            # and only those two VNFs can be mapped to the access nodes
-            for v_index, v in enumerate(self.virtual_nodes):
-                if v not in self.access_nodes.keys():
-                    self.gpmodel.addConstr(self.phi_node[v_index, self.physical_nodes_index[access_node[1]]] == 0)
 
     def generate_migration_constraints(self):
         """
@@ -329,11 +325,7 @@ class NetworkMapping:
                     for ij_index, ij in enumerate(self.physical_links)
                     for vw_index in sfc["links"]
                 )
-                + gp.quicksum( # migration downtime of the VNFs of this SFC only
-                    self.migration_downtime * self.xi[v_index, i]
-                    for v_index in sfc["nodes"]
-                    for i in range(len(self.physical_nodes))
-                ) <= self.max_delay
+                <= self.max_delay
             )
 
     def energy_cost(self, k=None): 

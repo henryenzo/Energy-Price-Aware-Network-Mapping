@@ -37,6 +37,7 @@ def json_parser(model_name: str, file_name = "test_models.json") -> dict:
 
 
 class NetworkMapping:
+
     def __init__(self, model: dict, W: int = 1, S: int = 1, N: int = 10, time_stride: int =1, offset: int = 0, prices_csv: str = "energy_prices.csv", graphviz_output_dir: str = "plots/graphs", time_limit: float = 30):
         """
             Constructor of the class, takes a dict as input containing the model parameters (physGraph, sfc, availability, requirements etc) and initializes the class attributes accordingly. \n
@@ -110,12 +111,14 @@ class NetworkMapping:
         self.overall_cost = 0
         self.placement = []
         self.migrations = []
+        self.mip_gaps = []      # gurobi MIP gap of each time slot, to check afterwards that the results are not just a truncated branch and bound
+        self.statuses = []      # gurobi status of each time slot, same purpose
         self.time_stride = time_stride
 
         self.graphviz_output_dir = graphviz_output_dir
         self.verbose = False
 
-        self.max_delay = 0.3 # s, 300ms SLA per SFC now
+        self.max_delay = 0.15 # s, 150ms SLA per SFC now
         #self.max_delay = model["max_delay"]
         self.migration_downtime = 0.228 # in seconds. Comes from Liu2011 (Dbench benchmark, 124ms scaled to a 2GB VNF) : closest workload to a NAT/FW/TM VNF apparently (otherwise it's incomparable)
 
@@ -210,27 +213,27 @@ class NetworkMapping:
                 for v in range(len(self.virtual_nodes)):
                     self.gpmodel.addConstr(self.sigma[k, i_index] >= self.phi_node[k, v, i_index])
                 self.gpmodel.addConstr(self.sigma[k, i_index] <= gp.quicksum(self.phi_node[k, v, i_index] for v in range(len(self.virtual_nodes)))) # needed when the price is negative : otherwise switching empty servers on would earn money
+                self.gpmodel.addConstr(self.sigma[k, i_index] >= gp.quicksum(self.phi_node[k, v, i_index] * self.computing_requirements[self.virtual_nodes[v]] for v in range(len(self.virtual_nodes))) / self.computing_availability[self.physical_nodes[i_index]]) # valid for a binary placement, and it stops a fractionally filled node from paying only a fraction of its idle power on the relaxed time steps
 
     def generate_availability_constraints(self):
 
         for k in range(self.W):
-            # Availability constraints for the physical servers only, access nodes excluded in the range
+            # Availability constraints, applied to every physical node since access nodes can host VNFs too
             for i_index, i in enumerate(self.physical_nodes):
-                if i not in self.access_nodes.values(): # just erase this line to apply the constraints to access nodes as well
-                    # In terms of computing resource
-                    self.gpmodel.addConstr(
-                        gp.quicksum(
-                            self.phi_node[k, v_index, i_index] * self.computing_requirements[v]
+                # In terms of computing resource
+                self.gpmodel.addConstr(
+                    gp.quicksum(
+                        self.phi_node[k, v_index, i_index] * self.computing_requirements[v]
+                        for v_index, v in enumerate(self.virtual_nodes)
+                    ) <=  self.computing_availability[self.physical_nodes[i_index]]
+                )
+                # In terms of memory resource
+                self.gpmodel.addConstr(
+                    gp.quicksum(
+                        self.phi_node[k, v_index, i_index] * self.memory_requirements[v]
                             for v_index, v in enumerate(self.virtual_nodes)
-                        ) <=  self.computing_availability[self.physical_nodes[i_index]]
-                    )
-                    # In terms of memory resource
-                    self.gpmodel.addConstr(
-                        gp.quicksum(
-                            self.phi_node[k, v_index, i_index] * self.memory_requirements[v]
-                                for v_index, v in enumerate(self.virtual_nodes)
-                        ) <=  self.memory_availability[self.physical_nodes[i_index]]
-                    )
+                    ) <=  self.memory_availability[self.physical_nodes[i_index]]
+                )
 
             # And in terms of bandwidth usage
             for i, j in self.physical_links:
@@ -253,10 +256,6 @@ class NetworkMapping:
                         self.physical_nodes_index[access_node[1]]
                     ] == 1
                 )
-                # and only those two VNFs can be mapped to the access nodes
-                for v_index, v in enumerate(self.virtual_nodes):
-                    if v not in self.access_nodes.keys():
-                        self.gpmodel.addConstr(self.phi_node[k, v_index, self.physical_nodes_index[access_node[1]]] == 0)
 
     def generate_migration_constraints(self):
         """
@@ -356,11 +355,7 @@ class NetworkMapping:
                     for ij_index, ij in enumerate(self.physical_links)
                     for vw_index in sfc["links"]
                 )
-                + gp.quicksum( # migration downtime of the VNFs of this SFC only
-                    self.migration_downtime * self.xi[0, v_index, i]
-                    for v_index in sfc["nodes"]
-                    for i in range(len(self.physical_nodes))
-                ) <= self.max_delay
+                <= self.max_delay
             )
             for k in range(1, self.W): # relaxed time steps : linear part of the delay only, otherwise too long
                 self.gpmodel.addConstr(
@@ -372,11 +367,7 @@ class NetworkMapping:
                         for ij_index, ij in enumerate(self.physical_links)
                         for vw_index in sfc["links"]
                     )
-                    + gp.quicksum( # migration downtime of the VNFs of this SFC only
-                        self.migration_downtime * self.xi[k, v_index, i]
-                        for v_index in sfc["nodes"]
-                        for i in range(len(self.physical_nodes))
-                    ) <= self.max_delay
+                    <= self.max_delay
                 )
 
 
@@ -503,14 +494,12 @@ class NetworkMapping:
                 return gp.LinExpr(0)                    # no migration cost for the first time slot
             w = 0
             prev = np.rint(self.prev_phi_node[0])
-            origin = lambda v, i: float(prev[self.virtual_nodes_index[v], self.physical_nodes_index[i]])
+            origin_price = {v: sum(self.energy_price[i][k] * float(prev[self.virtual_nodes_index[v], self.physical_nodes_index[i]]) for i in self.physical_nodes) for v in self.virtual_nodes}
             self.Cm = gp.quicksum(
                 coefficient * Joules_to_MWh
-                * (E_origin * self.energy_price[i][k] + E_dest * self.energy_price[j][k])
+                * (E_origin * origin_price[v] + E_dest * self.energy_price[j][k])
                 * self.xi[w, self.virtual_nodes_index[v], self.physical_nodes_index[j]]
-                * origin(v, i)
                 for v in self.virtual_nodes
-                for i in self.physical_nodes
                 for j in self.physical_nodes
             )
         else:
@@ -637,6 +626,8 @@ class NetworkMapping:
         """
         try:
             self.gpmodel.optimize()
+            self.statuses.append(int(self.gpmodel.Status))
+            self.mip_gaps.append(float(self.gpmodel.MIPGap) if self.gpmodel.SolCount > 0 else float('inf'))
             if self.gpmodel.Status == GRB.OPTIMAL:
                 if self.verbose:
                     for v in self.gpmodel.getVars():
@@ -650,11 +641,11 @@ class NetworkMapping:
                         + f"so we're using the best solution found (gap={self.gpmodel.MIPGap*100:.2f}%, obj={self.gpmodel.ObjVal:g}, bound={self.gpmodel.ObjBound:g})")
                     self.optimized_flag = 1
                 else:
-                    print(f"Time limit reached ({self.gpmodel.Params.TimeLimit:g}s) without finding any feasible solution") # this shouldn't happen normally but who knows
+                    raise ValueError(f"Time limit reached ({self.gpmodel.Params.TimeLimit:g}s) without finding any feasible solution") # this shouldn't happen normally but who knows
             elif self.gpmodel.Status == GRB.INFEASIBLE:
-                print("Model is infeasible")
+                raise ValueError(f"Model is infeasible at k={self.k} (W={self.W})")
             else:
-                print(f"Optimization finished with status {self.gpmodel.Status}")
+                raise ValueError(f"Optimization finished with status {self.gpmodel.Status} at k={self.k} (W={self.W})")
 
         except gp.GurobiError as e:
             print(f"Error code {e.errno}: {e}")

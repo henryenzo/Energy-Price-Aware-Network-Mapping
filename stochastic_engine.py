@@ -119,7 +119,7 @@ def get_energy_prices_from_csv(csv_file_name="energy_prices.csv", time_slots=10,
     prices_dict = {}
     for code in country_list:
         assert code in df.columns, f"Column {code} not found"
-        assert time_slots <= len(df)/stride, f"Requested {time_slots} time slots, but only {len(df)/stride} available"
+        assert starting_index + time_slots*stride <= len(df), f"Requested {time_slots} time slots with stride {stride} from index {starting_index}, but the CSV only has {len(df)} rows"
         prices_dict[code] = df[code].iloc[starting_index:starting_index + time_slots*stride:stride].tolist()
     
     return prices_dict

@@ -56,12 +56,13 @@ BASELINE_RHO = 0.11  # baseline load factor : same fill as nobel-eu-1SFC (16 cor
 DURATIONS = [6, 12, 24, 48]  # duration axis, in time slots
 DATE_STEP_DAYS = 3  # date axis : one scenario every DATE_STEP_DAYS days of the CSV
 START_HOURS = [0, 6, 12, 18]  # starting hour axis, Zulu time
-RHO_LIST = [0.11, 0.25, 0.50, 0.75]  # load factor axis. Setting it to [BASELINE_RHO] makes it run only the baseline rho in case that's a bad idea to use it
+RHO_LIST = [0.11]  # load factor axis. Setting it to [BASELINE_RHO] makes it run only the baseline rho in case that's a bad idea to use it
 
 # size of the generated models, see Section 5 of my draft paper
 SFC_LEN = 8
-VNF_CPU, VNF_MEM, VNF_BW = 4, 2, 2
+VNF_CPU, VNF_MEM, VNF_BW = 4, 2, 0.1  # cores, GB, GB/s : 0.1 GB/s = 800 Mbps per virtual link, the order of magnitude of a chain aggregating a few thousand sessions
 NODE_CPU, NODE_MEM = 64, 256  # Dell PowerEdge HS5610 (2 x Xeon Gold 6448Y), the SPECpower reference server that I chose in Section 5
+LINK_BW = 10 / 8  # GB/s, a 10 Gbps physical link on every edge of the topology
 
 RESUME = True  # skip the scenarios already present in the results file
 
@@ -117,7 +118,7 @@ def n_sfc_for_rho(rho, cpu_req = None, cpu_avail = None, sfc_len = None, n_nodes
 def ensure_load_models(rho_list = None, model_file = MODEL_FILE, seed = 0):
     """
         Makes sure one model exists in model_file for each target load factor, generating the missing ones with cost_vs_load.generate_nobel_eu_entry.\n
-        Bandwidth availability is set to VNF_BW * n_sfc so that no physical link can ever saturate
+        Bandwidth availability is set to LINK_BW on every physical link
 
         Returns: dict {rho_target: {"model_name":..., "n_sfc":..., "rho":...}} in the order of rho_list
     """
@@ -134,7 +135,7 @@ def ensure_load_models(rho_list = None, model_file = MODEL_FILE, seed = 0):
         model_name = f"{SOURCE_MODEL}-{n_sfc}SFC"
         rho = compute_rho(n_sfc, VNF_CPU, VNF_MEM, NODE_CPU, NODE_MEM, SFC_LEN, n_nodes)[2]
         if model_name not in existing:
-            entry = generate_nobel_eu_entry(n_sfc, cpu_req=VNF_CPU, mem_req=VNF_MEM, bw_req=VNF_BW, cpu_avail=NODE_CPU, mem_avail=NODE_MEM, bw_avail=VNF_BW * n_sfc, sfc_len=SFC_LEN, model_name=model_name, source_model=SOURCE_MODEL, seed=seed)
+            entry = generate_nobel_eu_entry(n_sfc, cpu_req=VNF_CPU, mem_req=VNF_MEM, bw_req=VNF_BW, cpu_avail=NODE_CPU, mem_avail=NODE_MEM, bw_avail=LINK_BW, sfc_len=SFC_LEN, model_name=model_name, source_model=SOURCE_MODEL, seed=seed)
             append_entry_to_json(entry, model_file)
             existing.add(model_name)
         models[rho_target] = {"model_name": model_name, "n_sfc": n_sfc, "rho": rho}
@@ -261,6 +262,8 @@ def run_case(case, W, prices_csv = PRICES_CSV, stride = TIME_STRIDE):
         "migration_cost": float(sum(float(c.get("migration_cost", 0)) for c in costs)),
         "mean_delay": float(np.mean([float(c["link_delay"]) for c in costs])),
         "migrations": int(np.sum(network_mapping.migrations)),  # empty list for the static model
+        "mip_gaps": [float(g) for g in network_mapping.mip_gaps],   # one per time slot, to tell a genuinely bad model from a truncated branch and bound
+        "statuses": [int(s) for s in network_mapping.statuses],     # gurobi status code of each time slot (2 = OPTIMAL, 9 = TIME_LIMIT)
         "price_dispersion": price_dispersion(PRICES_DF, model, case["N"], W, case["offset"], stride),
         "simulation_duration": simulation_duration,
         "optim_duration": simulation_duration / case["N"],  # average optimization duration per time slot
@@ -298,7 +301,7 @@ def run_batch(cases, W_list = W_LIST, batch_name = BATCH_NAME, prices_csv = PRIC
                 print_out(f"      /!\\ scenario dropped, the optimization raised : {e}\n")
                 continue
             computed[key] = result
-            print_out(f"overall cost = {result['overall_cost']:.6f}, {result['migrations']} migrations, {result['simulation_duration']:.1f} s\n")
+            print_out(f"overall cost = {result['overall_cost']:.6f}, {result['migrations']} migrations, worst MIP gap = {100*max(result['mip_gaps'], default=0):.2f}%, {result['simulation_duration']:.1f} s\n")
         results.append(result)
         with open(results_path, "wb") as file:
             pickle.dump(results, file)

@@ -1,377 +1,307 @@
 2017 rows available, from 2026-07-07 22:00:00+00:00 to 2026-07-28 22:00:00+00:00 and 19 zones
 rho target 11.0% -> 8 SFCs (48 VNFs), actual rho = 10.7%, the model is named 'nobel-eu-8SFC'
-rho target 25.0% -> 18 SFCs (108 VNFs), actual rho = 24.1%, the model is named 'nobel-eu-18SFC'
-rho target 50.0% -> 37 SFCs (222 VNFs), actual rho = 49.6%, the model is named 'nobel-eu-37SFC'
-rho target 75.0% -> 56 SFCs (336 VNFs), actual rho = 75.0%, the model is named 'nobel-eu-56SFC'
 Baseline scenario : N=24 time slots, starting on 2026-07-17 at 00h UTC, rho=10.7% ('nobel-eu-8SFC')
-114 optimizations to run
+96 optimizations to run
 
-===== [1/114] scenario duration_6 (nobel-eu-8SFC, N=6, 2026-07-17 00h) with W=0
-overall cost = 1.497432, 0 migrations, 10.0 s
+===== [1/96] scenario duration_6 (nobel-eu-8SFC, N=6, 2026-07-17 00h) with W=0
+overall cost = 1.241281, 0 migrations, worst MIP gap = 0.00%, 9.6 s
 
-===== [2/114] scenario duration_6 (nobel-eu-8SFC, N=6, 2026-07-17 00h) with W=1
-overall cost = 1.502468, 0 migrations, 106.9 s
+===== [2/96] scenario duration_6 (nobel-eu-8SFC, N=6, 2026-07-17 00h) with W=1
+overall cost = 1.241281, 0 migrations, worst MIP gap = 0.00%, 19.6 s
 
-===== [3/114] scenario duration_6 (nobel-eu-8SFC, N=6, 2026-07-17 00h) with W=2
-overall cost = 1.502468, 0 migrations, 167.1 s
+===== [3/96] scenario duration_6 (nobel-eu-8SFC, N=6, 2026-07-17 00h) with W=2
+overall cost = 1.241281, 0 migrations, worst MIP gap = 0.00%, 31.5 s
 
-===== [4/114] scenario duration_6 (nobel-eu-8SFC, N=6, 2026-07-17 00h) with W=3
-overall cost = 1.502468, 0 migrations, 374.3 s
+===== [4/96] scenario duration_6 (nobel-eu-8SFC, N=6, 2026-07-17 00h) with W=3
+overall cost = 1.241281, 0 migrations, worst MIP gap = 0.00%, 43.6 s
 
-===== [5/114] scenario duration_6 (nobel-eu-8SFC, N=6, 2026-07-17 00h) with W=4
-overall cost = 1.497685, 0 migrations, 876.4 s
+===== [5/96] scenario duration_6 (nobel-eu-8SFC, N=6, 2026-07-17 00h) with W=4
+overall cost = 1.241281, 0 migrations, worst MIP gap = 0.01%, 56.2 s
 
-===== [6/114] scenario duration_6 (nobel-eu-8SFC, N=6, 2026-07-17 00h) with W=5
-overall cost = 1.636445, 9 migrations, 893.3 s
+===== [6/96] scenario duration_6 (nobel-eu-8SFC, N=6, 2026-07-17 00h) with W=5
+overall cost = 1.241281, 0 migrations, worst MIP gap = 0.01%, 69.6 s
 
-===== [7/114] scenario duration_12 (nobel-eu-8SFC, N=12, 2026-07-17 00h) with W=0
-overall cost = 3.099590, 0 migrations, 29.7 s
+===== [7/96] scenario duration_12 (nobel-eu-8SFC, N=12, 2026-07-17 00h) with W=0
+overall cost = 2.550008, 0 migrations, worst MIP gap = 0.00%, 15.1 s
 
-===== [8/114] scenario duration_12 (nobel-eu-8SFC, N=12, 2026-07-17 00h) with W=1
-overall cost = 3.131532, 0 migrations, 264.5 s
+===== [8/96] scenario duration_12 (nobel-eu-8SFC, N=12, 2026-07-17 00h) with W=1
+overall cost = 2.550008, 0 migrations, worst MIP gap = 0.00%, 37.1 s
 
-===== [9/114] scenario duration_12 (nobel-eu-8SFC, N=12, 2026-07-17 00h) with W=2
-overall cost = 3.135258, 0 migrations, 377.4 s
+===== [9/96] scenario duration_12 (nobel-eu-8SFC, N=12, 2026-07-17 00h) with W=2
+overall cost = 2.550008, 0 migrations, worst MIP gap = 0.00%, 54.2 s
 
-===== [10/114] scenario duration_12 (nobel-eu-8SFC, N=12, 2026-07-17 00h) with W=3
-overall cost = 3.154064, 8 migrations, 1063.5 s
+===== [10/96] scenario duration_12 (nobel-eu-8SFC, N=12, 2026-07-17 00h) with W=3
+overall cost = 2.550008, 0 migrations, worst MIP gap = 0.00%, 72.2 s
 
-===== [11/114] scenario duration_12 (nobel-eu-8SFC, N=12, 2026-07-17 00h) with W=4
-overall cost = 3.241618, 10 migrations, 1887.7 s
+===== [11/96] scenario duration_12 (nobel-eu-8SFC, N=12, 2026-07-17 00h) with W=4
+overall cost = 2.550008, 0 migrations, worst MIP gap = 0.01%, 92.7 s
 
-===== [12/114] scenario duration_12 (nobel-eu-8SFC, N=12, 2026-07-17 00h) with W=5
-overall cost = 3.283562, 10 migrations, 1755.4 s
+===== [12/96] scenario duration_12 (nobel-eu-8SFC, N=12, 2026-07-17 00h) with W=5
+overall cost = 2.550008, 0 migrations, worst MIP gap = 0.01%, 113.4 s
 
-===== [13/114] scenario duration_24 (nobel-eu-8SFC, N=24, 2026-07-17 00h) with W=0
-overall cost = 5.468357, 0 migrations, 27.9 s
+===== [13/96] scenario duration_24 (nobel-eu-8SFC, N=24, 2026-07-17 00h) with W=0
+overall cost = 4.710164, 0 migrations, worst MIP gap = 0.00%, 26.4 s
 
-===== [14/114] scenario duration_24 (nobel-eu-8SFC, N=24, 2026-07-17 00h) with W=1
-overall cost = 5.625063, 36 migrations, 457.1 s
+===== [14/96] scenario duration_24 (nobel-eu-8SFC, N=24, 2026-07-17 00h) with W=1
+overall cost = 4.625980, 96 migrations, worst MIP gap = 0.00%, 72.4 s
 
-===== [15/114] scenario duration_24 (nobel-eu-8SFC, N=24, 2026-07-17 00h) with W=2
-overall cost = 5.580043, 28 migrations, 774.1 s
+===== [15/96] scenario duration_24 (nobel-eu-8SFC, N=24, 2026-07-17 00h) with W=2
+overall cost = 4.624390, 64 migrations, worst MIP gap = 0.01%, 103.4 s
 
-===== [16/114] scenario duration_24 (nobel-eu-8SFC, N=24, 2026-07-17 00h) with W=3
-overall cost = 5.557670, 26 migrations, 1946.5 s
+===== [16/96] scenario duration_24 (nobel-eu-8SFC, N=24, 2026-07-17 00h) with W=3
+overall cost = 4.623599, 64 migrations, worst MIP gap = 0.00%, 134.0 s
 
-===== [17/114] scenario duration_24 (nobel-eu-8SFC, N=24, 2026-07-17 00h) with W=4
-overall cost = 5.649900, 65 migrations, 4806.9 s
+===== [17/96] scenario duration_24 (nobel-eu-8SFC, N=24, 2026-07-17 00h) with W=4
+overall cost = 4.623599, 64 migrations, worst MIP gap = 0.01%, 175.1 s
 
-===== [18/114] scenario duration_24 (nobel-eu-8SFC, N=24, 2026-07-17 00h) with W=5
-overall cost = 5.956691, 10 migrations, 6131.9 s
+===== [18/96] scenario duration_24 (nobel-eu-8SFC, N=24, 2026-07-17 00h) with W=5
+overall cost = 4.623599, 64 migrations, worst MIP gap = 0.01%, 207.3 s
 
-===== [19/114] scenario duration_48 (nobel-eu-8SFC, N=48, 2026-07-17 00h) with W=0
-overall cost = 11.743445, 0 migrations, 55.4 s
+===== [19/96] scenario duration_48 (nobel-eu-8SFC, N=48, 2026-07-17 00h) with W=0
+overall cost = 9.766857, 0 migrations, worst MIP gap = 0.00%, 48.7 s
 
-===== [20/114] scenario duration_48 (nobel-eu-8SFC, N=48, 2026-07-17 00h) with W=1
-overall cost = 11.931887, 63 migrations, 981.6 s
+===== [20/96] scenario duration_48 (nobel-eu-8SFC, N=48, 2026-07-17 00h) with W=1
+overall cost = 9.529302, 160 migrations, worst MIP gap = 0.00%, 142.2 s
 
-===== [21/114] scenario duration_48 (nobel-eu-8SFC, N=48, 2026-07-17 00h) with W=2
-overall cost = 11.767634, 66 migrations, 1920.8 s
+===== [21/96] scenario duration_48 (nobel-eu-8SFC, N=48, 2026-07-17 00h) with W=2
+overall cost = 9.524352, 144 migrations, worst MIP gap = 0.01%, 194.0 s
 
-===== [22/114] scenario duration_48 (nobel-eu-8SFC, N=48, 2026-07-17 00h) with W=3
-overall cost = 11.675733, 60 migrations, 4376.8 s
+===== [22/96] scenario duration_48 (nobel-eu-8SFC, N=48, 2026-07-17 00h) with W=3
+overall cost = 9.518930, 144 migrations, worst MIP gap = 0.00%, 248.9 s
 
-===== [23/114] scenario duration_48 (nobel-eu-8SFC, N=48, 2026-07-17 00h) with W=4
-overall cost = 11.835025, 27 migrations, 8200.0 s
+===== [23/96] scenario duration_48 (nobel-eu-8SFC, N=48, 2026-07-17 00h) with W=4
+overall cost = 9.518847, 144 migrations, worst MIP gap = 0.01%, 311.2 s
 
-===== [24/114] scenario duration_48 (nobel-eu-8SFC, N=48, 2026-07-17 00h) with W=5
-overall cost = 12.170984, 10 migrations, 7191.6 s
+===== [24/96] scenario duration_48 (nobel-eu-8SFC, N=48, 2026-07-17 00h) with W=5
+overall cost = 9.518847, 144 migrations, worst MIP gap = 0.01%, 384.4 s
 
-===== [25/114] scenario date_07-07 (nobel-eu-8SFC, N=24, 2026-07-07 00h) with W=0
-overall cost = 4.745367, 0 migrations, 30.3 s
+===== [25/96] scenario date_07-07 (nobel-eu-8SFC, N=24, 2026-07-07 00h) with W=0
+overall cost = 3.546056, 0 migrations, worst MIP gap = 0.00%, 26.4 s
 
-===== [26/114] scenario date_07-07 (nobel-eu-8SFC, N=24, 2026-07-07 00h) with W=1
-overall cost = 4.812753, 43 migrations, 498.9 s
+===== [26/96] scenario date_07-07 (nobel-eu-8SFC, N=24, 2026-07-07 00h) with W=1
+overall cost = 3.477135, 123 migrations, worst MIP gap = 0.01%, 71.9 s
 
-===== [27/114] scenario date_07-07 (nobel-eu-8SFC, N=24, 2026-07-07 00h) with W=2
-overall cost = 4.810809, 64 migrations, 799.1 s
+===== [27/96] scenario date_07-07 (nobel-eu-8SFC, N=24, 2026-07-07 00h) with W=2
+overall cost = 3.477228, 117 migrations, worst MIP gap = 0.01%, 101.6 s
 
-===== [28/114] scenario date_07-07 (nobel-eu-8SFC, N=24, 2026-07-07 00h) with W=3
-overall cost = 4.794587, 60 migrations, 2422.9 s
+===== [28/96] scenario date_07-07 (nobel-eu-8SFC, N=24, 2026-07-07 00h) with W=3
+overall cost = 3.476947, 119 migrations, worst MIP gap = 0.00%, 135.6 s
 
-===== [29/114] scenario date_07-07 (nobel-eu-8SFC, N=24, 2026-07-07 00h) with W=4
-overall cost = 4.836469, 48 migrations, 3678.6 s
+===== [29/96] scenario date_07-07 (nobel-eu-8SFC, N=24, 2026-07-07 00h) with W=4
+overall cost = 3.476945, 121 migrations, worst MIP gap = 0.01%, 177.4 s
 
-===== [30/114] scenario date_07-07 (nobel-eu-8SFC, N=24, 2026-07-07 00h) with W=5
-overall cost = 5.023854, 55 migrations, 3491.9 s
+===== [30/96] scenario date_07-07 (nobel-eu-8SFC, N=24, 2026-07-07 00h) with W=5
+overall cost = 3.476990, 118 migrations, worst MIP gap = 0.01%, 224.5 s
 
-===== [31/114] scenario date_07-10 (nobel-eu-8SFC, N=24, 2026-07-10 00h) with W=0
-overall cost = 4.680967, 0 migrations, 30.1 s
+===== [31/96] scenario date_07-10 (nobel-eu-8SFC, N=24, 2026-07-10 00h) with W=0
+overall cost = 4.228153, 0 migrations, worst MIP gap = 0.00%, 26.3 s
 
-===== [32/114] scenario date_07-10 (nobel-eu-8SFC, N=24, 2026-07-10 00h) with W=1
-overall cost = 4.847747, 34 migrations, 514.5 s
+===== [32/96] scenario date_07-10 (nobel-eu-8SFC, N=24, 2026-07-10 00h) with W=1
+overall cost = 4.121512, 176 migrations, worst MIP gap = 0.00%, 72.5 s
 
-===== [33/114] scenario date_07-10 (nobel-eu-8SFC, N=24, 2026-07-10 00h) with W=2
-overall cost = 4.817365, 27 migrations, 1277.7 s
+===== [33/96] scenario date_07-10 (nobel-eu-8SFC, N=24, 2026-07-10 00h) with W=2
+overall cost = 4.117506, 144 migrations, worst MIP gap = 0.01%, 105.3 s
 
-===== [34/114] scenario date_07-10 (nobel-eu-8SFC, N=24, 2026-07-10 00h) with W=3
-overall cost = 4.805248, 39 migrations, 2874.0 s
+===== [34/96] scenario date_07-10 (nobel-eu-8SFC, N=24, 2026-07-10 00h) with W=3
+overall cost = 4.116504, 128 migrations, worst MIP gap = 0.01%, 145.0 s
 
-===== [35/114] scenario date_07-10 (nobel-eu-8SFC, N=24, 2026-07-10 00h) with W=4
+===== [35/96] scenario date_07-10 (nobel-eu-8SFC, N=24, 2026-07-10 00h) with W=4
+overall cost = 4.117024, 144 migrations, worst MIP gap = 0.00%, 198.7 s
 
-############# workflow interrupt: resume at scenario 35 --> 80 to go
+===== [36/96] scenario date_07-10 (nobel-eu-8SFC, N=24, 2026-07-10 00h) with W=5
+overall cost = 4.117117, 144 migrations, worst MIP gap = 0.01%, 216.0 s
 
-2017 rows available, from 2026-07-07 22:00:00+00:00 to 2026-07-28 22:00:00+00:00 and 19 zones
-rho target 11.0% -> 8 SFCs (48 VNFs), actual rho = 10.7%, the model is named 'nobel-eu-8SFC'
-rho target 25.0% -> 18 SFCs (108 VNFs), actual rho = 24.1%, the model is named 'nobel-eu-18SFC'
-rho target 50.0% -> 37 SFCs (222 VNFs), actual rho = 49.6%, the model is named 'nobel-eu-37SFC'
-rho target 75.0% -> 56 SFCs (336 VNFs), actual rho = 75.0%, the model is named 'nobel-eu-56SFC'
-Baseline scenario : N=24 time slots, starting on 2026-07-17 at 00h UTC, rho=10.7% ('nobel-eu-8SFC')
-34 results loaded from 'batch_nobel-eu-rho.pkl', the corresponding scenarios will be skipped
-80 optimizations to run
+===== [37/96] scenario date_07-13 (nobel-eu-8SFC, N=24, 2026-07-13 00h) with W=0
+overall cost = 3.894802, 0 migrations, worst MIP gap = 0.00%, 26.3 s
 
-===== [1/80] scenario date_07-10 (nobel-eu-8SFC, N=24, 2026-07-10 00h) with W=4
-overall cost = 4.806548, 49 migrations, 3402.2 s
+===== [38/96] scenario date_07-13 (nobel-eu-8SFC, N=24, 2026-07-13 00h) with W=1
+overall cost = 3.747705, 102 migrations, worst MIP gap = 0.01%, 72.4 s
 
-===== [2/80] scenario date_07-10 (nobel-eu-8SFC, N=24, 2026-07-10 00h) with W=5
-overall cost = 4.960274, 29 migrations, 3514.4 s
+===== [39/96] scenario date_07-13 (nobel-eu-8SFC, N=24, 2026-07-13 00h) with W=2
+overall cost = 3.741951, 80 migrations, worst MIP gap = 0.01%, 103.8 s
 
-===== [3/80] scenario date_07-13 (nobel-eu-8SFC, N=24, 2026-07-13 00h) with W=0
-overall cost = 4.347169, 0 migrations, 29.6 s
+===== [40/96] scenario date_07-13 (nobel-eu-8SFC, N=24, 2026-07-13 00h) with W=3
+overall cost = 3.741951, 80 migrations, worst MIP gap = 0.01%, 141.4 s
 
-===== [4/80] scenario date_07-13 (nobel-eu-8SFC, N=24, 2026-07-13 00h) with W=1
-overall cost = 4.467751, 39 migrations, 461.9 s
+===== [41/96] scenario date_07-13 (nobel-eu-8SFC, N=24, 2026-07-13 00h) with W=4
+overall cost = 3.741951, 80 migrations, worst MIP gap = 0.00%, 182.9 s
 
-===== [5/80] scenario date_07-13 (nobel-eu-8SFC, N=24, 2026-07-13 00h) with W=2
-overall cost = 4.380363, 44 migrations, 746.6 s
+===== [42/96] scenario date_07-13 (nobel-eu-8SFC, N=24, 2026-07-13 00h) with W=5
+overall cost = 3.741951, 80 migrations, worst MIP gap = 0.00%, 199.2 s
 
-===== [6/80] scenario date_07-13 (nobel-eu-8SFC, N=24, 2026-07-13 00h) with W=3
-overall cost = 4.365629, 69 migrations, 2077.1 s
+===== [43/96] scenario date_07-16 (nobel-eu-8SFC, N=24, 2026-07-16 00h) with W=0
+overall cost = 4.963851, 0 migrations, worst MIP gap = 0.00%, 26.3 s
 
-===== [7/80] scenario date_07-13 (nobel-eu-8SFC, N=24, 2026-07-13 00h) with W=4
-overall cost = 4.453674, 86 migrations, 3640.6 s
+===== [44/96] scenario date_07-16 (nobel-eu-8SFC, N=24, 2026-07-16 00h) with W=1
+overall cost = 4.887769, 96 migrations, worst MIP gap = 0.01%, 71.9 s
 
-===== [8/80] scenario date_07-13 (nobel-eu-8SFC, N=24, 2026-07-13 00h) with W=5
-overall cost = 4.622888, 27 migrations, 3555.1 s
+===== [45/96] scenario date_07-16 (nobel-eu-8SFC, N=24, 2026-07-16 00h) with W=2
+overall cost = 4.886527, 112 migrations, worst MIP gap = 0.01%, 103.0 s
 
-===== [9/80] scenario date_07-16 (nobel-eu-8SFC, N=24, 2026-07-16 00h) with W=0
-overall cost = 5.753936, 0 migrations, 30.0 s
+===== [46/96] scenario date_07-16 (nobel-eu-8SFC, N=24, 2026-07-16 00h) with W=3
+overall cost = 4.885255, 112 migrations, worst MIP gap = 0.00%, 139.0 s
 
-===== [10/80] scenario date_07-16 (nobel-eu-8SFC, N=24, 2026-07-16 00h) with W=1
-overall cost = 5.867680, 28 migrations, 482.0 s
+===== [47/96] scenario date_07-16 (nobel-eu-8SFC, N=24, 2026-07-16 00h) with W=4
+overall cost = 4.882956, 80 migrations, worst MIP gap = 0.00%, 180.6 s
 
-===== [11/80] scenario date_07-16 (nobel-eu-8SFC, N=24, 2026-07-16 00h) with W=2
-overall cost = 5.859292, 26 migrations, 804.8 s
+===== [48/96] scenario date_07-16 (nobel-eu-8SFC, N=24, 2026-07-16 00h) with W=5
+overall cost = 4.883025, 80 migrations, worst MIP gap = 0.01%, 225.4 s
 
-===== [12/80] scenario date_07-16 (nobel-eu-8SFC, N=24, 2026-07-16 00h) with W=3
-overall cost = 5.813344, 27 migrations, 2453.1 s
+===== [49/96] scenario date_07-19 (nobel-eu-8SFC, N=24, 2026-07-19 00h) with W=0
+overall cost = 2.427420, 0 migrations, worst MIP gap = 0.00%, 26.1 s
 
-===== [13/80] scenario date_07-16 (nobel-eu-8SFC, N=24, 2026-07-16 00h) with W=4
-overall cost = 5.927232, 48 migrations, 3663.9 s
+===== [50/96] scenario date_07-19 (nobel-eu-8SFC, N=24, 2026-07-19 00h) with W=1
+overall cost = 2.393189, 481 migrations, worst MIP gap = 0.01%, 71.7 s
 
-===== [14/80] scenario date_07-16 (nobel-eu-8SFC, N=24, 2026-07-16 00h) with W=5
-overall cost = 6.291078, 15 migrations, 3472.4 s
+===== [51/96] scenario date_07-19 (nobel-eu-8SFC, N=24, 2026-07-19 00h) with W=2
+overall cost = 2.393264, 464 migrations, worst MIP gap = 0.01%, 104.5 s
 
-===== [15/80] scenario date_07-19 (nobel-eu-8SFC, N=24, 2026-07-19 00h) with W=0
-overall cost = 2.773411, 0 migrations, 27.6 s
+===== [52/96] scenario date_07-19 (nobel-eu-8SFC, N=24, 2026-07-19 00h) with W=3
+overall cost = 2.392962, 472 migrations, worst MIP gap = 0.01%, 173.8 s
 
-===== [16/80] scenario date_07-19 (nobel-eu-8SFC, N=24, 2026-07-19 00h) with W=1
-overall cost = 3.025099, 105 migrations, 451.7 s
+===== [53/96] scenario date_07-19 (nobel-eu-8SFC, N=24, 2026-07-19 00h) with W=4
+overall cost = 2.389512, 412 migrations, worst MIP gap = 0.00%, 262.9 s
 
-===== [17/80] scenario date_07-19 (nobel-eu-8SFC, N=24, 2026-07-19 00h) with W=2
-overall cost = 2.999080, 119 migrations, 915.4 s
+===== [54/96] scenario date_07-19 (nobel-eu-8SFC, N=24, 2026-07-19 00h) with W=5
+overall cost = 2.389505, 437 migrations, worst MIP gap = 0.01%, 240.0 s
 
-===== [18/80] scenario date_07-19 (nobel-eu-8SFC, N=24, 2026-07-19 00h) with W=3
-overall cost = 2.975611, 104 migrations, 5656.9 s
+===== [55/96] scenario date_07-22 (nobel-eu-8SFC, N=24, 2026-07-22 00h) with W=0
+overall cost = 4.027015, 0 migrations, worst MIP gap = 0.00%, 26.2 s
 
-===== [19/80] scenario date_07-19 (nobel-eu-8SFC, N=24, 2026-07-19 00h) with W=4
-overall cost = 2.932222, 68 migrations, 2174.8 s
+===== [56/96] scenario date_07-22 (nobel-eu-8SFC, N=24, 2026-07-22 00h) with W=1
+overall cost = 3.897890, 136 migrations, worst MIP gap = 0.01%, 75.6 s
 
-===== [20/80] scenario date_07-19 (nobel-eu-8SFC, N=24, 2026-07-19 00h) with W=5
-overall cost = 2.970210, 101 migrations, 2610.6 s
+===== [57/96] scenario date_07-22 (nobel-eu-8SFC, N=24, 2026-07-22 00h) with W=2
+overall cost = 3.898013, 237 migrations, worst MIP gap = 0.00%, 110.0 s
 
-===== [21/80] scenario date_07-22 (nobel-eu-8SFC, N=24, 2026-07-22 00h) with W=0
-overall cost = 4.554508, 0 migrations, 30.2 s
+===== [58/96] scenario date_07-22 (nobel-eu-8SFC, N=24, 2026-07-22 00h) with W=3
+overall cost = 3.889207, 182 migrations, worst MIP gap = 0.00%, 143.9 s
 
-===== [22/80] scenario date_07-22 (nobel-eu-8SFC, N=24, 2026-07-22 00h) with W=1
-overall cost = 4.537436, 40 migrations, 517.5 s
+===== [59/96] scenario date_07-22 (nobel-eu-8SFC, N=24, 2026-07-22 00h) with W=4
+overall cost = 3.889202, 178 migrations, worst MIP gap = 0.01%, 188.7 s
 
-===== [23/80] scenario date_07-22 (nobel-eu-8SFC, N=24, 2026-07-22 00h) with W=2
-overall cost = 4.529745, 48 migrations, 781.5 s
+===== [60/96] scenario date_07-22 (nobel-eu-8SFC, N=24, 2026-07-22 00h) with W=5
+overall cost = 3.889231, 189 migrations, worst MIP gap = 0.01%, 202.9 s
 
-===== [24/80] scenario date_07-22 (nobel-eu-8SFC, N=24, 2026-07-22 00h) with W=3
-overall cost = 4.490099, 74 migrations, 1710.9 s
+===== [61/96] scenario date_07-25 (nobel-eu-8SFC, N=24, 2026-07-25 00h) with W=0
+overall cost = 2.655878, 0 migrations, worst MIP gap = 0.00%, 26.9 s
 
-===== [25/80] scenario date_07-22 (nobel-eu-8SFC, N=24, 2026-07-22 00h) with W=4
-overall cost = 4.519482, 53 migrations, 2426.0 s
+===== [62/96] scenario date_07-25 (nobel-eu-8SFC, N=24, 2026-07-25 00h) with W=1
+overall cost = 2.468607, 487 migrations, worst MIP gap = 0.01%, 75.5 s
 
-===== [26/80] scenario date_07-22 (nobel-eu-8SFC, N=24, 2026-07-22 00h) with W=5
-overall cost = 5.034920, 76 migrations, 9486.7 s
+===== [63/96] scenario date_07-25 (nobel-eu-8SFC, N=24, 2026-07-25 00h) with W=2
+overall cost = 2.467270, 485 migrations, worst MIP gap = 0.01%, 105.7 s
 
-===== [27/80] scenario date_07-25 (nobel-eu-8SFC, N=24, 2026-07-25 00h) with W=0
-overall cost = 3.139297, 0 migrations, 353.0 s
+===== [64/96] scenario date_07-25 (nobel-eu-8SFC, N=24, 2026-07-25 00h) with W=3
+overall cost = 2.465118, 502 migrations, worst MIP gap = 0.01%, 141.0 s
 
-===== [28/80] scenario date_07-25 (nobel-eu-8SFC, N=24, 2026-07-25 00h) with W=1
-overall cost = 3.146655, 87 migrations, 453.6 s
+===== [65/96] scenario date_07-25 (nobel-eu-8SFC, N=24, 2026-07-25 00h) with W=4
+overall cost = 2.464256, 524 migrations, worst MIP gap = 0.01%, 182.9 s
 
-===== [29/80] scenario date_07-25 (nobel-eu-8SFC, N=24, 2026-07-25 00h) with W=2
-overall cost = 3.071410, 96 migrations, 1458.6 s
+===== [66/96] scenario date_07-25 (nobel-eu-8SFC, N=24, 2026-07-25 00h) with W=5
+overall cost = 2.464263, 532 migrations, worst MIP gap = 0.00%, 205.3 s
 
-===== [30/80] scenario date_07-25 (nobel-eu-8SFC, N=24, 2026-07-25 00h) with W=3
-overall cost = 3.063323, 101 migrations, 1784.2 s
-
-===== [31/80] scenario date_07-25 (nobel-eu-8SFC, N=24, 2026-07-25 00h) with W=4
-overall cost = 3.081812, 96 migrations, 3301.4 s
-
-===== [32/80] scenario date_07-25 (nobel-eu-8SFC, N=24, 2026-07-25 00h) with W=5
-overall cost = 3.238818, 103 migrations, 3449.8 s
-
-===== [33/80] scenario hour_00h (nobel-eu-8SFC, N=24, 2026-07-17 00h) with W=0
+===== [67/96] scenario hour_00h (nobel-eu-8SFC, N=24, 2026-07-17 00h) with W=0
       identical to the scenario 'duration_24' already optimized, reused as is
 
-===== [34/80] scenario hour_00h (nobel-eu-8SFC, N=24, 2026-07-17 00h) with W=1
+===== [68/96] scenario hour_00h (nobel-eu-8SFC, N=24, 2026-07-17 00h) with W=1
       identical to the scenario 'duration_24' already optimized, reused as is
 
-===== [35/80] scenario hour_00h (nobel-eu-8SFC, N=24, 2026-07-17 00h) with W=2
+===== [69/96] scenario hour_00h (nobel-eu-8SFC, N=24, 2026-07-17 00h) with W=2
       identical to the scenario 'duration_24' already optimized, reused as is
 
-===== [36/80] scenario hour_00h (nobel-eu-8SFC, N=24, 2026-07-17 00h) with W=3
+===== [70/96] scenario hour_00h (nobel-eu-8SFC, N=24, 2026-07-17 00h) with W=3
       identical to the scenario 'duration_24' already optimized, reused as is
 
-===== [37/80] scenario hour_00h (nobel-eu-8SFC, N=24, 2026-07-17 00h) with W=4
+===== [71/96] scenario hour_00h (nobel-eu-8SFC, N=24, 2026-07-17 00h) with W=4
       identical to the scenario 'duration_24' already optimized, reused as is
 
-===== [38/80] scenario hour_00h (nobel-eu-8SFC, N=24, 2026-07-17 00h) with W=5
+===== [72/96] scenario hour_00h (nobel-eu-8SFC, N=24, 2026-07-17 00h) with W=5
       identical to the scenario 'duration_24' already optimized, reused as is
 
-===== [39/80] scenario hour_06h (nobel-eu-8SFC, N=24, 2026-07-17 06h) with W=0
-overall cost = 5.099831, 0 migrations, 28.6 s
+===== [73/96] scenario hour_06h (nobel-eu-8SFC, N=24, 2026-07-17 06h) with W=0
+overall cost = 4.302535, 0 migrations, worst MIP gap = 0.00%, 27.3 s
 
-===== [40/80] scenario hour_06h (nobel-eu-8SFC, N=24, 2026-07-17 06h) with W=1
-overall cost = 5.176643, 0 migrations, 459.0 s
+===== [74/96] scenario hour_06h (nobel-eu-8SFC, N=24, 2026-07-17 06h) with W=1
+overall cost = 4.169665, 128 migrations, worst MIP gap = 0.00%, 72.5 s
 
-===== [41/80] scenario hour_06h (nobel-eu-8SFC, N=24, 2026-07-17 06h) with W=2
-overall cost = 5.165666, 22 migrations, 1178.5 s
+===== [75/96] scenario hour_06h (nobel-eu-8SFC, N=24, 2026-07-17 06h) with W=2
+overall cost = 4.164374, 96 migrations, worst MIP gap = 0.82%, 408.5 s
 
-===== [42/80] scenario hour_06h (nobel-eu-8SFC, N=24, 2026-07-17 06h) with W=3
-overall cost = 5.164238, 20 migrations, 2353.8 s
+===== [76/96] scenario hour_06h (nobel-eu-8SFC, N=24, 2026-07-17 06h) with W=3
+overall cost = 4.165555, 112 migrations, worst MIP gap = 0.00%, 1192.0 s
 
-===== [43/80] scenario hour_06h (nobel-eu-8SFC, N=24, 2026-07-17 06h) with W=4
-overall cost = 5.176643, 0 migrations, 3718.2 s
+===== [77/96] scenario hour_06h (nobel-eu-8SFC, N=24, 2026-07-17 06h) with W=4
+overall cost = 4.165472, 112 migrations, worst MIP gap = 0.00%, 2459.9 s
 
-===== [44/80] scenario hour_06h (nobel-eu-8SFC, N=24, 2026-07-17 06h) with W=5
-overall cost = 5.603046, 4 migrations, 3659.1 s
+===== [78/96] scenario hour_06h (nobel-eu-8SFC, N=24, 2026-07-17 06h) with W=5
+overall cost = 4.165384, 111 migrations, worst MIP gap = 39.42%, 3659.7 s
 
-===== [45/80] scenario hour_12h (nobel-eu-8SFC, N=24, 2026-07-17 12h) with W=0
-overall cost = 5.985250, 0 migrations, 36.2 s
+===== [79/96] scenario hour_12h (nobel-eu-8SFC, N=24, 2026-07-17 12h) with W=0
+overall cost = 4.921535, 0 migrations, worst MIP gap = 0.00%, 27.0 s
 
-===== [46/80] scenario hour_12h (nobel-eu-8SFC, N=24, 2026-07-17 12h) with W=1
-overall cost = 6.327719, 0 migrations, 656.6 s
+===== [80/96] scenario hour_12h (nobel-eu-8SFC, N=24, 2026-07-17 12h) with W=1
+overall cost = 4.897852, 64 migrations, worst MIP gap = 0.00%, 71.8 s
 
-===== [47/80] scenario hour_12h (nobel-eu-8SFC, N=24, 2026-07-17 12h) with W=2
-overall cost = 6.170697, 21 migrations, 1367.2 s
+===== [81/96] scenario hour_12h (nobel-eu-8SFC, N=24, 2026-07-17 12h) with W=2
+overall cost = 4.896271, 64 migrations, worst MIP gap = 0.00%, 998.6 s
 
-===== [48/80] scenario hour_12h (nobel-eu-8SFC, N=24, 2026-07-17 12h) with W=3
-overall cost = 6.327719, 0 migrations, 2896.5 s
+===== [82/96] scenario hour_12h (nobel-eu-8SFC, N=24, 2026-07-17 12h) with W=3
+overall cost = 4.892396, 64 migrations, worst MIP gap = 0.00%, 2544.3 s
 
-===== [49/80] scenario hour_12h (nobel-eu-8SFC, N=24, 2026-07-17 12h) with W=4
-overall cost = 6.315230, 0 migrations, 3875.4 s
+===== [83/96] scenario hour_12h (nobel-eu-8SFC, N=24, 2026-07-17 12h) with W=4
+overall cost = 4.892396, 64 migrations, worst MIP gap = 0.01%, 2103.8 s
 
-===== [50/80] scenario hour_12h (nobel-eu-8SFC, N=24, 2026-07-17 12h) with W=5
-overall cost = 6.305761, 4 migrations, 3517.0 s
+===== [84/96] scenario hour_12h (nobel-eu-8SFC, N=24, 2026-07-17 12h) with W=5
+overall cost = 4.890855, 32 migrations, worst MIP gap = 0.01%, 212.5 s
 
-===== [51/80] scenario hour_18h (nobel-eu-8SFC, N=24, 2026-07-17 18h) with W=0
-overall cost = 6.262243, 0 migrations, 26.9 s
+===== [85/96] scenario hour_18h (nobel-eu-8SFC, N=24, 2026-07-17 18h) with W=0
+overall cost = 5.158217, 0 migrations, worst MIP gap = 0.00%, 965.9 s
 
-===== [52/80] scenario hour_18h (nobel-eu-8SFC, N=24, 2026-07-17 18h) with W=1
-overall cost = 6.298384, 0 migrations, 465.7 s
+===== [86/96] scenario hour_18h (nobel-eu-8SFC, N=24, 2026-07-17 18h) with W=1
+overall cost = 5.177142, 32 migrations, worst MIP gap = 0.00%, 72.2 s
 
-===== [53/80] scenario hour_18h (nobel-eu-8SFC, N=24, 2026-07-17 18h) with W=2
-overall cost = 6.303328, 8 migrations, 829.4 s
+===== [87/96] scenario hour_18h (nobel-eu-8SFC, N=24, 2026-07-17 18h) with W=2
+overall cost = 5.163093, 32 migrations, worst MIP gap = 0.00%, 105.7 s
 
-===== [54/80] scenario hour_18h (nobel-eu-8SFC, N=24, 2026-07-17 18h) with W=3
-overall cost = 6.301395, 16 migrations, 2129.5 s
+===== [88/96] scenario hour_18h (nobel-eu-8SFC, N=24, 2026-07-17 18h) with W=3
+overall cost = 5.160547, 32 migrations, worst MIP gap = 0.01%, 215.6 s
 
-===== [55/80] scenario hour_18h (nobel-eu-8SFC, N=24, 2026-07-17 18h) with W=4
-overall cost = 6.293119, 17 migrations, 3718.8 s
+===== [89/96] scenario hour_18h (nobel-eu-8SFC, N=24, 2026-07-17 18h) with W=4
+overall cost = 5.155054, 16 migrations, worst MIP gap = 0.01%, 2218.4 s
 
-===== [56/80] scenario hour_18h (nobel-eu-8SFC, N=24, 2026-07-17 18h) with W=5
-overall cost = 6.605123, 16 migrations, 3498.6 s
+===== [90/96] scenario hour_18h (nobel-eu-8SFC, N=24, 2026-07-17 18h) with W=5
+overall cost = 5.155054, 16 migrations, worst MIP gap = 0.01%, 394.0 s
 
-===== [57/80] scenario rho_11% (nobel-eu-8SFC, N=24, 2026-07-17 00h) with W=0
+===== [91/96] scenario rho_11% (nobel-eu-8SFC, N=24, 2026-07-17 00h) with W=0
       identical to the scenario 'duration_24' already optimized, reused as is
 
-===== [58/80] scenario rho_11% (nobel-eu-8SFC, N=24, 2026-07-17 00h) with W=1
+===== [92/96] scenario rho_11% (nobel-eu-8SFC, N=24, 2026-07-17 00h) with W=1
       identical to the scenario 'duration_24' already optimized, reused as is
 
-===== [59/80] scenario rho_11% (nobel-eu-8SFC, N=24, 2026-07-17 00h) with W=2
+===== [93/96] scenario rho_11% (nobel-eu-8SFC, N=24, 2026-07-17 00h) with W=2
       identical to the scenario 'duration_24' already optimized, reused as is
 
-===== [60/80] scenario rho_11% (nobel-eu-8SFC, N=24, 2026-07-17 00h) with W=3
+===== [94/96] scenario rho_11% (nobel-eu-8SFC, N=24, 2026-07-17 00h) with W=3
       identical to the scenario 'duration_24' already optimized, reused as is
 
-===== [61/80] scenario rho_11% (nobel-eu-8SFC, N=24, 2026-07-17 00h) with W=4
+===== [95/96] scenario rho_11% (nobel-eu-8SFC, N=24, 2026-07-17 00h) with W=4
       identical to the scenario 'duration_24' already optimized, reused as is
 
-===== [62/80] scenario rho_11% (nobel-eu-8SFC, N=24, 2026-07-17 00h) with W=5
+===== [96/96] scenario rho_11% (nobel-eu-8SFC, N=24, 2026-07-17 00h) with W=5
       identical to the scenario 'duration_24' already optimized, reused as is
-
-===== [63/80] scenario rho_24% (nobel-eu-18SFC, N=24, 2026-07-17 00h) with W=0
-      /!\ scenario dropped, the optimization raised : Unable to retrieve attribute 'X'
-
-===== [64/80] scenario rho_24% (nobel-eu-18SFC, N=24, 2026-07-17 00h) with W=1
-      /!\ scenario dropped, the optimization raised : Unable to retrieve attribute 'X'
-
-===== [65/80] scenario rho_24% (nobel-eu-18SFC, N=24, 2026-07-17 00h) with W=2
-      /!\ scenario dropped, the optimization raised : Unable to retrieve attribute 'X'
-
-===== [66/80] scenario rho_24% (nobel-eu-18SFC, N=24, 2026-07-17 00h) with W=3
-      /!\ scenario dropped, the optimization raised : Unable to retrieve attribute 'X'
-
-===== [67/80] scenario rho_24% (nobel-eu-18SFC, N=24, 2026-07-17 00h) with W=4
-      /!\ scenario dropped, the optimization raised : Unable to retrieve attribute 'X'
-
-===== [68/80] scenario rho_24% (nobel-eu-18SFC, N=24, 2026-07-17 00h) with W=5
-      /!\ scenario dropped, the optimization raised : Unable to retrieve attribute 'X'
-
-===== [69/80] scenario rho_50% (nobel-eu-37SFC, N=24, 2026-07-17 00h) with W=0
-      /!\ scenario dropped, the optimization raised : Unable to retrieve attribute 'X'
-
-===== [70/80] scenario rho_50% (nobel-eu-37SFC, N=24, 2026-07-17 00h) with W=1
-      /!\ scenario dropped, the optimization raised : Unable to retrieve attribute 'X'
-
-===== [71/80] scenario rho_50% (nobel-eu-37SFC, N=24, 2026-07-17 00h) with W=2
-      /!\ scenario dropped, the optimization raised : Unable to retrieve attribute 'X'
-
-===== [72/80] scenario rho_50% (nobel-eu-37SFC, N=24, 2026-07-17 00h) with W=3
-      /!\ scenario dropped, the optimization raised : Unable to retrieve attribute 'X'
-
-===== [73/80] scenario rho_50% (nobel-eu-37SFC, N=24, 2026-07-17 00h) with W=4
-      /!\ scenario dropped, the optimization raised : Unable to retrieve attribute 'X'
-
-===== [74/80] scenario rho_50% (nobel-eu-37SFC, N=24, 2026-07-17 00h) with W=5
-      /!\ scenario dropped, the optimization raised : Unable to retrieve attribute 'X'
-
-===== [75/80] scenario rho_75% (nobel-eu-56SFC, N=24, 2026-07-17 00h) with W=0
-      /!\ scenario dropped, the optimization raised : Unable to retrieve attribute 'X'
-
-===== [76/80] scenario rho_75% (nobel-eu-56SFC, N=24, 2026-07-17 00h) with W=1
-      /!\ scenario dropped, the optimization raised : Unable to retrieve attribute 'X'
-
-===== [77/80] scenario rho_75% (nobel-eu-56SFC, N=24, 2026-07-17 00h) with W=2
-      /!\ scenario dropped, the optimization raised : Unable to retrieve attribute 'X'
-
-===== [78/80] scenario rho_75% (nobel-eu-56SFC, N=24, 2026-07-17 00h) with W=3
-      /!\ scenario dropped, the optimization raised : Unable to retrieve attribute 'X'
-
-===== [79/80] scenario rho_75% (nobel-eu-56SFC, N=24, 2026-07-17 00h) with W=4
-      /!\ scenario dropped, the optimization raised : Unable to retrieve attribute 'X'
-
-===== [80/80] scenario rho_75% (nobel-eu-56SFC, N=24, 2026-07-17 00h) with W=5
-      /!\ scenario dropped, the optimization raised : Unable to retrieve attribute 'X'
 
 Batch finished, 96 results saved in '/Users/enzohenry/Documents/Stage/Code/simulations_bat/results/batch_nobel-eu-rho.pkl'
 
 ===== Gain of the dynamic model over the static one
 axis                W=1          W=2          W=3          W=4          W=5
-duration        -1.459%      -0.934%      -0.788%      -2.175%      -6.947%
-date            -2.667%      -1.760%      -1.229%      -1.884%      -6.904%
-hour            -2.668%      -1.772%      -2.311%      -2.708%      -7.407%
-rho             -2.866%      -2.042%      -1.633%      -3.320%      -8.930%
-overall         -2.378%      -1.574%      -1.415%      -2.253%      -7.167%
-best case        0.375%       2.162%       2.420%       1.831%      -3.170%
-worst case      -9.075%      -8.137%      -7.291%      -5.726%     -10.548%
+duration         1.055%       1.076%       1.094%       1.094%       1.094%
+date             3.063%       3.107%       3.160%       3.190%       3.189%
+hour             1.247%       1.363%       1.392%       1.419%       1.428%
+rho              1.787%       1.821%       1.838%       1.838%       1.838%
+overall          2.027%       2.083%       2.119%       2.139%       2.141%
+best case        7.051%       7.102%       7.183%       7.215%       7.215%
+worst case      -0.367%      -0.095%      -0.045%       0.000%       0.000%
 Figure saved as 'gain_vs_duration_nobel-eu-rho.svg' and 'gain_vs_duration_nobel-eu-rho.pkl' in /Users/enzohenry/Documents/Stage/Code/simulations_bat/plots
 Figure saved as 'gain_vs_date_nobel-eu-rho.svg' and 'gain_vs_date_nobel-eu-rho.pkl' in /Users/enzohenry/Documents/Stage/Code/simulations_bat/plots
 Figure saved as 'gain_vs_hour_nobel-eu-rho.svg' and 'gain_vs_hour_nobel-eu-rho.pkl' in /Users/enzohenry/Documents/Stage/Code/simulations_bat/plots
