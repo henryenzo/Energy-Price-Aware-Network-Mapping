@@ -73,6 +73,11 @@ class NetworkMapping:
         self.W = W # time window of observation for the foresighted model
         self.S = S # time steps to optimize for the foresighted model, we can only set it to one for now, I don't even think a higher value would be useful.
 
+        self.static = (W<=0)    # W=0 is the oracle static, W=-1 the myopic one
+        self.oracle = (W==0)
+        if self.static:
+            self.W = 1
+
         # Gurobi model hyperparameters
         self.gpmodel = gp.Model("mip1")
         #self.gpmodel.Params.MIPGap = 1e-9          # too restrictive
@@ -462,8 +467,8 @@ class NetworkMapping:
             Total cost over the time window W, for the foresighted model. \n
             This function will be used to compute the total cost over the time window W, and will be used in the objective function\n
         """
-        if self.W == 0: # just one time slot, no migration cost
-            self.total_cost = self.energy_cost(self.k) + self.link_delay_cost()
+        if self.static: # just one time slot, no migration cost
+            self.total_cost = gp.quicksum(self.energy_cost(k) + self.link_delay_cost() for k in (range(self.N) if self.oracle else range(1))) # the myopic static only sees the first time slot
             return self.total_cost
         
         self.total_cost = gp.quicksum(
@@ -480,7 +485,7 @@ class NetworkMapping:
         """
             Cost at time slot k, used to save the cost at each time slot and display the cumulative cost at the end of the optimization process. \n
         """
-        if self.W == 0: # no migration cost
+        if self.static: # no migration cost
             return self.energy_cost().getValue() 
         
         # cost_k = self.energy_cost() + self.usage_cost() + self.disposal_cost() + self.migration_cost()
@@ -491,7 +496,7 @@ class NetworkMapping:
         """
             Individual effective costs at time slot k, for energy, migration, usage, and disposal, + the delay
         """
-        if self.W == 0: # no migration cost 
+        if self.static: # no migration cost 
             return {
                 "energy_cost": self.energy_cost().getValue(),
                 "link_delay": self.link_delay().getValue(),
@@ -610,8 +615,8 @@ class NetworkMapping:
         """
             Runs the model by computing it and optimizing it for each time slot k.
         """
-        if self.W == 0:
-            print("W=0 => running without migration, only optimizing for the current time slot k=0")
+        if self.static:
+            print(f"W<=0 => running without migration, {'oracle' if self.oracle else 'myopic'} static placement")
             self.run_nomig()
             return
         

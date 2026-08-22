@@ -2,15 +2,23 @@ Set parameter Username
 Set parameter LicenseID to value 2835854
 Academic license - for non-commercial use only - expires 2027-06-16
 Set parameter TimeLimit to value 1200
-Energy prices fetched from ENTSO-E CSV for the countries : ['IT_NORD', 'RS', 'CZ', 'FR', 'BE', 'CH', 'ES', 'NL', 'SE_3', 'PL', 'HR', 'IT_CNOR', 'DK_2', 'GR', 'NO_1', 'HU', 'IE_SEM', 'AT', 'DE_LU']
-24 time slots fetched for each node
-W=0 => running without migration, only optimizing for the current time slot k=0
+Energy prices fetched from ENTSO-E CSV for the countries : ['DE_LU', 'ES', 'HR', 'BE', 'SE_3', 'NL', 'RS', 'AT', 'HU', 'FR', 'CZ', 'IT_CNOR', 'DK_2', 'IT_NORD', 'NO_1', 'CH', 'GR', 'PL', 'IE_SEM']
+25 time slots fetched for each node
+W<=0 => running without migration, myopic static placement
 Obj: 0.218526
 Overall cost for the whole time horizon: 4.483012259999999
-Simulation duration for W=0: 26.63779616355896 seconds
+Simulation duration for W=-1: 23.563716173171997 seconds
+Worst MIP gap for W=-1: 0.00% (1 solves, statuses [2])
+Set parameter TimeLimit to value 1200
+Energy prices fetched from ENTSO-E CSV for the countries : ['DE_LU', 'ES', 'HR', 'BE', 'SE_3', 'NL', 'RS', 'AT', 'HU', 'FR', 'CZ', 'IT_CNOR', 'DK_2', 'IT_NORD', 'NO_1', 'CH', 'GR', 'PL', 'IE_SEM']
+25 time slots fetched for each node
+W<=0 => running without migration, oracle static placement
+Obj: 4.30254
+Overall cost for the whole time horizon: 4.3025353200000005
+Simulation duration for W=0: 25.59691596031189 seconds
 Worst MIP gap for W=0: 0.00% (1 solves, statuses [2])
 Set parameter TimeLimit to value 1200
-Energy prices fetched from ENTSO-E CSV for the countries : ['IT_NORD', 'RS', 'CZ', 'FR', 'BE', 'CH', 'ES', 'NL', 'SE_3', 'PL', 'HR', 'IT_CNOR', 'DK_2', 'GR', 'NO_1', 'HU', 'IE_SEM', 'AT', 'DE_LU']
+Energy prices fetched from ENTSO-E CSV for the countries : ['DE_LU', 'ES', 'HR', 'BE', 'SE_3', 'NL', 'RS', 'AT', 'HU', 'FR', 'CZ', 'IT_CNOR', 'DK_2', 'IT_NORD', 'NO_1', 'CH', 'GR', 'PL', 'IE_SEM']
 25 time slots fetched for each node
 Obj: 0.218526
 
@@ -245,10 +253,10 @@ MIP gap: 0.0
 
 Cost for each time slot k: [{'effective_cost': array(0.218526), 'energy_cost': array(0.218526), 'link_delay': array(0.4118), 'link_delay_cost': 0.0, 'migration_cost': 0.0}, {'effective_cost': array(0.19973033), 'energy_cost': array(0.19973033), 'link_delay': array(0.4118), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.20568585), 'energy_cost': array(0.20235899), 'link_delay': array(0.32261), 'link_delay_cost': 0.0, 'migration_cost': array(0.00332686)}, {'effective_cost': array(0.18628051), 'energy_cost': array(0.18345498), 'link_delay': array(0.31546), 'link_delay_cost': 0.0, 'migration_cost': array(0.00282553)}, {'effective_cost': array(0.18711224), 'energy_cost': array(0.18412991), 'link_delay': array(0.33671), 'link_delay_cost': 0.0, 'migration_cost': array(0.00298233)}, {'effective_cost': array(0.14948632), 'energy_cost': array(0.14948632), 'link_delay': array(0.33671), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.15621704), 'energy_cost': array(0.15621704), 'link_delay': array(0.33671), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.14702623), 'energy_cost': array(0.14702623), 'link_delay': array(0.33671), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.16030437), 'energy_cost': array(0.15766613), 'link_delay': array(0.312055), 'link_delay_cost': 0.0, 'migration_cost': array(0.00263824)}, {'effective_cost': array(0.15560595), 'energy_cost': array(0.15560595), 'link_delay': array(0.312055), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.15679319), 'energy_cost': array(0.15392897), 'link_delay': array(0.36134), 'link_delay_cost': 0.0, 'migration_cost': array(0.00286422)}, {'effective_cost': array(0.14933855), 'energy_cost': array(0.14933855), 'link_delay': array(0.36134), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.15276878), 'energy_cost': array(0.15276878), 'link_delay': array(0.36134), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.1514852), 'energy_cost': array(0.1514852), 'link_delay': array(0.36134), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.15150453), 'energy_cost': array(0.15150453), 'link_delay': array(0.36134), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.16105417), 'energy_cost': array(0.15792986), 'link_delay': array(0.552385), 'link_delay_cost': 0.0, 'migration_cost': array(0.00312431)}, {'effective_cost': array(0.15221742), 'energy_cost': array(0.14919445), 'link_delay': array(0.421065), 'link_delay_cost': 0.0, 'migration_cost': array(0.00302297)}, {'effective_cost': array(0.16880548), 'energy_cost': array(0.16554263), 'link_delay': array(0.3989), 'link_delay_cost': 0.0, 'migration_cost': array(0.00326285)}, {'effective_cost': array(0.1635148), 'energy_cost': array(0.1635148), 'link_delay': array(0.3989), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.17785985), 'energy_cost': array(0.17785985), 'link_delay': array(0.3989), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.17842889), 'energy_cost': array(0.17842889), 'link_delay': array(0.3989), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.20416297), 'energy_cost': array(0.20416297), 'link_delay': array(0.3989), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.19898979), 'energy_cost': array(0.19898979), 'link_delay': array(0.3989), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.23676675), 'energy_cost': array(0.23676675), 'link_delay': array(0.3989), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}]
 Overall cost for the whole time horizon: 4.169665218133332
-Simulation duration for W=1: 774.3969969749451 seconds
+Simulation duration for W=1: 637.6986849308014 seconds
 Worst MIP gap for W=1: 0.00% (24 solves, statuses [2])
 Set parameter TimeLimit to value 1200
-Energy prices fetched from ENTSO-E CSV for the countries : ['IT_NORD', 'RS', 'CZ', 'FR', 'BE', 'CH', 'ES', 'NL', 'SE_3', 'PL', 'HR', 'IT_CNOR', 'DK_2', 'GR', 'NO_1', 'HU', 'IE_SEM', 'AT', 'DE_LU']
+Energy prices fetched from ENTSO-E CSV for the countries : ['DE_LU', 'ES', 'HR', 'BE', 'SE_3', 'NL', 'RS', 'AT', 'HU', 'FR', 'CZ', 'IT_CNOR', 'DK_2', 'IT_NORD', 'NO_1', 'CH', 'GR', 'PL', 'IE_SEM']
 26 time slots fetched for each node
 Obj: 0.418256
 
@@ -483,10 +491,10 @@ MIP gap: 0.0
 
 Cost for each time slot k: [{'effective_cost': array(0.218526), 'energy_cost': array(0.218526), 'link_delay': array(0.363915), 'link_delay_cost': 0.0, 'migration_cost': 0.0}, {'effective_cost': array(0.19973033), 'energy_cost': array(0.19973033), 'link_delay': array(0.363915), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.20730141), 'energy_cost': array(0.20730141), 'link_delay': array(0.363915), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.18345498), 'energy_cost': array(0.18345498), 'link_delay': array(0.363915), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.18711224), 'energy_cost': array(0.18412991), 'link_delay': array(0.546565), 'link_delay_cost': 0.0, 'migration_cost': array(0.00298233)}, {'effective_cost': array(0.14948632), 'energy_cost': array(0.14948632), 'link_delay': array(0.546565), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.15621704), 'energy_cost': array(0.15621704), 'link_delay': array(0.546565), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.15018813), 'energy_cost': array(0.14779819), 'link_delay': array(0.80764), 'link_delay_cost': 0.0, 'migration_cost': array(0.00238994)}, {'effective_cost': array(0.15766613), 'energy_cost': array(0.15766613), 'link_delay': array(0.80764), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.15808973), 'energy_cost': array(0.15576795), 'link_delay': array(0.394395), 'link_delay_cost': 0.0, 'migration_cost': array(0.00232178)}, {'effective_cost': array(0.15392897), 'energy_cost': array(0.15392897), 'link_delay': array(0.394395), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.14933855), 'energy_cost': array(0.14933855), 'link_delay': array(0.394395), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.15276878), 'energy_cost': array(0.15276878), 'link_delay': array(0.394395), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.1514852), 'energy_cost': array(0.1514852), 'link_delay': array(0.394395), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.15396745), 'energy_cost': array(0.15108213), 'link_delay': array(0.425995), 'link_delay_cost': 0.0, 'migration_cost': array(0.00288532)}, {'effective_cost': array(0.16244833), 'energy_cost': array(0.15937964), 'link_delay': array(0.38834), 'link_delay_cost': 0.0, 'migration_cost': array(0.00306869)}, {'effective_cost': array(0.14786965), 'energy_cost': array(0.14786965), 'link_delay': array(0.38834), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.16554263), 'energy_cost': array(0.16554263), 'link_delay': array(0.38834), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.1635148), 'energy_cost': array(0.1635148), 'link_delay': array(0.38834), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.17785985), 'energy_cost': array(0.17785985), 'link_delay': array(0.38834), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.17842889), 'energy_cost': array(0.17842889), 'link_delay': array(0.38834), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.20416297), 'energy_cost': array(0.20416297), 'link_delay': array(0.38834), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.19898979), 'energy_cost': array(0.19898979), 'link_delay': array(0.38834), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.23676675), 'energy_cost': array(0.23676675), 'link_delay': array(0.38834), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}]
 Overall cost for the whole time horizon: 4.164844920319999
-Simulation duration for W=2: 817.816056728363 seconds
+Simulation duration for W=2: 640.7985410690308 seconds
 Worst MIP gap for W=2: 0.00% (24 solves, statuses [2])
 Set parameter TimeLimit to value 1200
-Energy prices fetched from ENTSO-E CSV for the countries : ['IT_NORD', 'RS', 'CZ', 'FR', 'BE', 'CH', 'ES', 'NL', 'SE_3', 'PL', 'HR', 'IT_CNOR', 'DK_2', 'GR', 'NO_1', 'HU', 'IE_SEM', 'AT', 'DE_LU']
+Energy prices fetched from ENTSO-E CSV for the countries : ['DE_LU', 'ES', 'HR', 'BE', 'SE_3', 'NL', 'RS', 'AT', 'HU', 'FR', 'CZ', 'IT_CNOR', 'DK_2', 'IT_NORD', 'NO_1', 'CH', 'GR', 'PL', 'IE_SEM']
 27 time slots fetched for each node
 Obj: 0.625558
 
@@ -721,10 +729,10 @@ MIP gap: 0.0
 
 Cost for each time slot k: [{'effective_cost': array(0.218526), 'energy_cost': array(0.218526), 'link_delay': array(0.359965), 'link_delay_cost': 0.0, 'migration_cost': 0.0}, {'effective_cost': array(0.19973033), 'energy_cost': array(0.19973033), 'link_delay': array(0.359965), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.20730141), 'energy_cost': array(0.20730141), 'link_delay': array(0.359965), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.18345498), 'energy_cost': array(0.18345498), 'link_delay': array(0.359965), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.18711224), 'energy_cost': array(0.18412991), 'link_delay': array(0.955855), 'link_delay_cost': 0.0, 'migration_cost': array(0.00298233)}, {'effective_cost': array(0.14948632), 'energy_cost': array(0.14948632), 'link_delay': array(0.955855), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.15729203), 'energy_cost': array(0.1549274), 'link_delay': array(0.944665), 'link_delay_cost': 0.0, 'migration_cost': array(0.00236463)}, {'effective_cost': array(0.14779819), 'energy_cost': array(0.14779819), 'link_delay': array(0.944665), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.16119343), 'energy_cost': array(0.15894713), 'link_delay': array(0.73858), 'link_delay_cost': 0.0, 'migration_cost': array(0.0022463)}, {'effective_cost': array(0.15588795), 'energy_cost': array(0.15588795), 'link_delay': array(0.73858), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.15432257), 'energy_cost': array(0.15432257), 'link_delay': array(0.73858), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.14972015), 'energy_cost': array(0.14972015), 'link_delay': array(0.73858), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.15313358), 'energy_cost': array(0.15313358), 'link_delay': array(0.73858), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.15461368), 'energy_cost': array(0.1517612), 'link_delay': array(0.56851), 'link_delay_cost': 0.0, 'migration_cost': array(0.00285248)}, {'effective_cost': array(0.15107973), 'energy_cost': array(0.15107973), 'link_delay': array(0.56851), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.15937964), 'energy_cost': array(0.15937964), 'link_delay': array(0.56851), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.14786965), 'energy_cost': array(0.14786965), 'link_delay': array(0.56851), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.16554263), 'energy_cost': array(0.16554263), 'link_delay': array(0.56851), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.1635148), 'energy_cost': array(0.1635148), 'link_delay': array(0.56851), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.17785985), 'energy_cost': array(0.17785985), 'link_delay': array(0.56851), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.17842889), 'energy_cost': array(0.17842889), 'link_delay': array(0.56851), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.20416297), 'energy_cost': array(0.20416297), 'link_delay': array(0.56851), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.19898979), 'energy_cost': array(0.19898979), 'link_delay': array(0.56851), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.23949401), 'energy_cost': array(0.23523075), 'link_delay': array(0.4355), 'link_delay_cost': 0.0, 'migration_cost': array(0.00426326)}]
 Overall cost for the whole time horizon: 4.1658948212
-Simulation duration for W=3: 844.6906208992004 seconds
+Simulation duration for W=3: 670.0710768699646 seconds
 Worst MIP gap for W=3: 0.00% (24 solves, statuses [2])
 Set parameter TimeLimit to value 1200
-Energy prices fetched from ENTSO-E CSV for the countries : ['IT_NORD', 'RS', 'CZ', 'FR', 'BE', 'CH', 'ES', 'NL', 'SE_3', 'PL', 'HR', 'IT_CNOR', 'DK_2', 'GR', 'NO_1', 'HU', 'IE_SEM', 'AT', 'DE_LU']
+Energy prices fetched from ENTSO-E CSV for the countries : ['DE_LU', 'ES', 'HR', 'BE', 'SE_3', 'NL', 'RS', 'AT', 'HU', 'FR', 'CZ', 'IT_CNOR', 'DK_2', 'IT_NORD', 'NO_1', 'CH', 'GR', 'PL', 'IE_SEM']
 28 time slots fetched for each node
 Obj: 0.809013
 
@@ -959,14 +967,14 @@ MIP gap: 0.0
 
 Cost for each time slot k: [{'effective_cost': array(0.218526), 'energy_cost': array(0.218526), 'link_delay': array(0.46071), 'link_delay_cost': 0.0, 'migration_cost': 0.0}, {'effective_cost': array(0.19973033), 'energy_cost': array(0.19973033), 'link_delay': array(0.46071), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.20730141), 'energy_cost': array(0.20730141), 'link_delay': array(0.46071), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.19269809), 'energy_cost': array(0.18982858), 'link_delay': array(1.11014), 'link_delay_cost': 0.0, 'migration_cost': array(0.00286951)}, {'effective_cost': array(0.18412991), 'energy_cost': array(0.18412991), 'link_delay': array(1.11014), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.14948632), 'energy_cost': array(0.14948632), 'link_delay': array(1.11014), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.15729203), 'energy_cost': array(0.1549274), 'link_delay': array(0.847695), 'link_delay_cost': 0.0, 'migration_cost': array(0.00236463)}, {'effective_cost': array(0.14779819), 'energy_cost': array(0.14779819), 'link_delay': array(0.847695), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.16119343), 'energy_cost': array(0.15894713), 'link_delay': array(0.745605), 'link_delay_cost': 0.0, 'migration_cost': array(0.0022463)}, {'effective_cost': array(0.15588795), 'energy_cost': array(0.15588795), 'link_delay': array(0.745605), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.15432257), 'energy_cost': array(0.15432257), 'link_delay': array(0.745605), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.14972015), 'energy_cost': array(0.14972015), 'link_delay': array(0.745605), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.15597306), 'energy_cost': array(0.15313358), 'link_delay': array(0.656675), 'link_delay_cost': 0.0, 'migration_cost': array(0.00283948)}, {'effective_cost': array(0.1517612), 'energy_cost': array(0.1517612), 'link_delay': array(0.656675), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.15107973), 'energy_cost': array(0.15107973), 'link_delay': array(0.656675), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.15937964), 'energy_cost': array(0.15937964), 'link_delay': array(0.656675), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.14786965), 'energy_cost': array(0.14786965), 'link_delay': array(0.656675), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.16554263), 'energy_cost': array(0.16554263), 'link_delay': array(0.656675), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.1635148), 'energy_cost': array(0.1635148), 'link_delay': array(0.656675), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.17785985), 'energy_cost': array(0.17785985), 'link_delay': array(0.656675), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.17842889), 'energy_cost': array(0.17842889), 'link_delay': array(0.656675), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.20416297), 'energy_cost': array(0.20416297), 'link_delay': array(0.656675), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.19898979), 'energy_cost': array(0.19898979), 'link_delay': array(0.656675), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.23949401), 'energy_cost': array(0.23523075), 'link_delay': array(0.59139), 'link_delay_cost': 0.0, 'migration_cost': array(0.00426326)}]
 Overall cost for the whole time horizon: 4.17214259448
-Simulation duration for W=4: 819.2964079380035 seconds
+Simulation duration for W=4: 683.1106679439545 seconds
 Worst MIP gap for W=4: 0.01% (24 solves, statuses [2])
 Set parameter TimeLimit to value 1200
-/Users/enzohenry/Documents/Stage/Code/simulations.py:217: UserWarning: The figure layout has changed to tight
+/Users/enzohenry/Documents/Stage/Code/simulations.py:235: UserWarning: The figure layout has changed to tight
   plt.tight_layout()
-/Users/enzohenry/Documents/Stage/Code/simulations.py:223: UserWarning: FigureCanvasAgg is non-interactive, and thus cannot be shown
+/Users/enzohenry/Documents/Stage/Code/simulations.py:241: UserWarning: FigureCanvasAgg is non-interactive, and thus cannot be shown
   plt.show()
-Energy prices fetched from ENTSO-E CSV for the countries : ['IT_NORD', 'RS', 'CZ', 'FR', 'BE', 'CH', 'ES', 'NL', 'SE_3', 'PL', 'HR', 'IT_CNOR', 'DK_2', 'GR', 'NO_1', 'HU', 'IE_SEM', 'AT', 'DE_LU']
+Energy prices fetched from ENTSO-E CSV for the countries : ['DE_LU', 'ES', 'HR', 'BE', 'SE_3', 'NL', 'RS', 'AT', 'HU', 'FR', 'CZ', 'IT_CNOR', 'DK_2', 'IT_NORD', 'NO_1', 'CH', 'GR', 'PL', 'IE_SEM']
 29 time slots fetched for each node
 Obj: 0.997985
 
@@ -1201,19 +1209,28 @@ MIP gap: 0.0
 
 Cost for each time slot k: [{'effective_cost': array(0.218526), 'energy_cost': array(0.218526), 'link_delay': array(0.377385), 'link_delay_cost': 0.0, 'migration_cost': 0.0}, {'effective_cost': array(0.19973033), 'energy_cost': array(0.19973033), 'link_delay': array(0.377385), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.20730141), 'energy_cost': array(0.20730141), 'link_delay': array(0.377385), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.19269809), 'energy_cost': array(0.18982858), 'link_delay': array(1.01405), 'link_delay_cost': 0.0, 'migration_cost': array(0.00286951)}, {'effective_cost': array(0.18412991), 'energy_cost': array(0.18412991), 'link_delay': array(1.01405), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.15656351), 'energy_cost': array(0.15445073), 'link_delay': array(0.739705), 'link_delay_cost': 0.0, 'migration_cost': array(0.00211278)}, {'effective_cost': array(0.1549274), 'energy_cost': array(0.1549274), 'link_delay': array(0.739705), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.14779819), 'energy_cost': array(0.14779819), 'link_delay': array(0.739705), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.16119343), 'energy_cost': array(0.15894713), 'link_delay': array(0.555565), 'link_delay_cost': 0.0, 'migration_cost': array(0.0022463)}, {'effective_cost': array(0.15588795), 'energy_cost': array(0.15588795), 'link_delay': array(0.555565), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.15432257), 'energy_cost': array(0.15432257), 'link_delay': array(0.555565), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.15255586), 'energy_cost': array(0.14972015), 'link_delay': array(0.58257), 'link_delay_cost': 0.0, 'migration_cost': array(0.00283571)}, {'effective_cost': array(0.15313358), 'energy_cost': array(0.15313358), 'link_delay': array(0.58257), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.1517612), 'energy_cost': array(0.1517612), 'link_delay': array(0.58257), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.15107973), 'energy_cost': array(0.15107973), 'link_delay': array(0.58257), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.15937964), 'energy_cost': array(0.15937964), 'link_delay': array(0.58257), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.14786965), 'energy_cost': array(0.14786965), 'link_delay': array(0.58257), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.16554263), 'energy_cost': array(0.16554263), 'link_delay': array(0.58257), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.1635148), 'energy_cost': array(0.1635148), 'link_delay': array(0.58257), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.17785985), 'energy_cost': array(0.17785985), 'link_delay': array(0.58257), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.17842889), 'energy_cost': array(0.17842889), 'link_delay': array(0.58257), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.20416297), 'energy_cost': array(0.20416297), 'link_delay': array(0.58257), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}, {'effective_cost': array(0.21046303), 'energy_cost': array(0.20741859), 'link_delay': array(0.63671), 'link_delay_cost': 0.0, 'migration_cost': array(0.00304444)}, {'effective_cost': array(0.23523075), 'energy_cost': array(0.23523075), 'link_delay': array(0.63671), 'link_delay_cost': 0.0, 'migration_cost': array(0.)}]
 Overall cost for the whole time horizon: 4.184061359600001
-Simulation duration for W=5: 851.1576051712036 seconds
+Simulation duration for W=5: 699.1970200538635 seconds
 Worst MIP gap for W=5: 0.01% (24 solves, statuses [2])
 Set parameter TimeLimit to value 1200
-Energy prices fetched from ENTSO-E CSV for the countries : ['IT_NORD', 'RS', 'CZ', 'FR', 'BE', 'CH', 'ES', 'NL', 'SE_3', 'PL', 'HR', 'IT_CNOR', 'DK_2', 'GR', 'NO_1', 'HU', 'IE_SEM', 'AT', 'DE_LU']
+Energy prices fetched from ENTSO-E CSV for the countries : ['DE_LU', 'ES', 'HR', 'BE', 'SE_3', 'NL', 'RS', 'AT', 'HU', 'FR', 'CZ', 'IT_CNOR', 'DK_2', 'IT_NORD', 'NO_1', 'CH', 'GR', 'PL', 'IE_SEM']
 25 time slots fetched for each node
-W=0 => running without migration, only optimizing for the current time slot k=0
+W<=0 => running without migration, myopic static placement
+Obj: 0.218526
+Cost for each time slot k: [{'effective_cost': array(0.218526), 'energy_cost': array(0.218526), 'link_delay': array(0.40429), 'link_delay_cost': 0.0}, {'effective_cost': array(0.19973033), 'energy_cost': array(0.19973033), 'link_delay': array(0.40429), 'link_delay_cost': 0.0}, {'effective_cost': array(0.20730141), 'energy_cost': array(0.20730141), 'link_delay': array(0.40429), 'link_delay_cost': 0.0}, {'effective_cost': array(0.18345498), 'energy_cost': array(0.18345498), 'link_delay': array(0.40429), 'link_delay_cost': 0.0}, {'effective_cost': array(0.18897192), 'energy_cost': array(0.18897192), 'link_delay': array(0.40429), 'link_delay_cost': 0.0}, {'effective_cost': array(0.15359633), 'energy_cost': array(0.15359633), 'link_delay': array(0.40429), 'link_delay_cost': 0.0}, {'effective_cost': array(0.157625), 'energy_cost': array(0.157625), 'link_delay': array(0.40429), 'link_delay_cost': 0.0}, {'effective_cost': array(0.14876539), 'energy_cost': array(0.14876539), 'link_delay': array(0.40429), 'link_delay_cost': 0.0}, {'effective_cost': array(0.16087493), 'energy_cost': array(0.16087493), 'link_delay': array(0.40429), 'link_delay_cost': 0.0}, {'effective_cost': array(0.15560595), 'energy_cost': array(0.15560595), 'link_delay': array(0.40429), 'link_delay_cost': 0.0}, {'effective_cost': array(0.16035913), 'energy_cost': array(0.16035913), 'link_delay': array(0.40429), 'link_delay_cost': 0.0}, {'effective_cost': array(0.15568656), 'energy_cost': array(0.15568656), 'link_delay': array(0.40429), 'link_delay_cost': 0.0}, {'effective_cost': array(0.15220298), 'energy_cost': array(0.15220298), 'link_delay': array(0.40429), 'link_delay_cost': 0.0}, {'effective_cost': array(0.15786501), 'energy_cost': array(0.15786501), 'link_delay': array(0.40429), 'link_delay_cost': 0.0}, {'effective_cost': array(0.15800623), 'energy_cost': array(0.15800623), 'link_delay': array(0.40429), 'link_delay_cost': 0.0}, {'effective_cost': array(0.15891146), 'energy_cost': array(0.15891146), 'link_delay': array(0.40429), 'link_delay_cost': 0.0}, {'effective_cost': array(0.15772585), 'energy_cost': array(0.15772585), 'link_delay': array(0.40429), 'link_delay_cost': 0.0}, {'effective_cost': array(0.18562581), 'energy_cost': array(0.18562581), 'link_delay': array(0.40429), 'link_delay_cost': 0.0}, {'effective_cost': array(0.1832575), 'energy_cost': array(0.1832575), 'link_delay': array(0.40429), 'link_delay_cost': 0.0}, {'effective_cost': array(0.21626692), 'energy_cost': array(0.21626692), 'link_delay': array(0.40429), 'link_delay_cost': 0.0}, {'effective_cost': array(0.21635114), 'energy_cost': array(0.21635114), 'link_delay': array(0.40429), 'link_delay_cost': 0.0}, {'effective_cost': array(0.2649101), 'energy_cost': array(0.2649101), 'link_delay': array(0.40429), 'link_delay_cost': 0.0}, {'effective_cost': array(0.25044755), 'energy_cost': array(0.25044755), 'link_delay': array(0.40429), 'link_delay_cost': 0.0}, {'effective_cost': array(0.29094378), 'energy_cost': array(0.29094378), 'link_delay': array(0.40429), 'link_delay_cost': 0.0}]
+Overall cost for the whole time horizon: 4.483012259999999
+Simulation duration for W=-1: 26.121153116226196 seconds
+Worst MIP gap for W=-1: 0.00% (1 solves, statuses [2])
+Set parameter TimeLimit to value 1200
+Energy prices fetched from ENTSO-E CSV for the countries : ['DE_LU', 'ES', 'HR', 'BE', 'SE_3', 'NL', 'RS', 'AT', 'HU', 'FR', 'CZ', 'IT_CNOR', 'DK_2', 'IT_NORD', 'NO_1', 'CH', 'GR', 'PL', 'IE_SEM']
+25 time slots fetched for each node
+W<=0 => running without migration, oracle static placement
 Obj: 4.30254
 Cost for each time slot k: [{'effective_cost': array(0.2400424), 'energy_cost': array(0.2400424), 'link_delay': array(0.54491), 'link_delay_cost': 0.0}, {'effective_cost': array(0.22692413), 'energy_cost': array(0.22692413), 'link_delay': array(0.54491), 'link_delay_cost': 0.0}, {'effective_cost': array(0.22086379), 'energy_cost': array(0.22086379), 'link_delay': array(0.54491), 'link_delay_cost': 0.0}, {'effective_cost': array(0.19552638), 'energy_cost': array(0.19552638), 'link_delay': array(0.54491), 'link_delay_cost': 0.0}, {'effective_cost': array(0.19748592), 'energy_cost': array(0.19748592), 'link_delay': array(0.54491), 'link_delay_cost': 0.0}, {'effective_cost': array(0.17465913), 'energy_cost': array(0.17465913), 'link_delay': array(0.54491), 'link_delay_cost': 0.0}, {'effective_cost': array(0.172405), 'energy_cost': array(0.172405), 'link_delay': array(0.54491), 'link_delay_cost': 0.0}, {'effective_cost': array(0.16548289), 'energy_cost': array(0.16548289), 'link_delay': array(0.54491), 'link_delay_cost': 0.0}, {'effective_cost': array(0.16096553), 'energy_cost': array(0.16096553), 'link_delay': array(0.54491), 'link_delay_cost': 0.0}, {'effective_cost': array(0.15564795), 'energy_cost': array(0.15564795), 'link_delay': array(0.54491), 'link_delay_cost': 0.0}, {'effective_cost': array(0.15432257), 'energy_cost': array(0.15432257), 'link_delay': array(0.54491), 'link_delay_cost': 0.0}, {'effective_cost': array(0.14972015), 'energy_cost': array(0.14972015), 'link_delay': array(0.54491), 'link_delay_cost': 0.0}, {'effective_cost': array(0.15313358), 'energy_cost': array(0.15313358), 'link_delay': array(0.54491), 'link_delay_cost': 0.0}, {'effective_cost': array(0.1517612), 'energy_cost': array(0.1517612), 'link_delay': array(0.54491), 'link_delay_cost': 0.0}, {'effective_cost': array(0.15107973), 'energy_cost': array(0.15107973), 'link_delay': array(0.54491), 'link_delay_cost': 0.0}, {'effective_cost': array(0.15937964), 'energy_cost': array(0.15937964), 'link_delay': array(0.54491), 'link_delay_cost': 0.0}, {'effective_cost': array(0.14786965), 'energy_cost': array(0.14786965), 'link_delay': array(0.54491), 'link_delay_cost': 0.0}, {'effective_cost': array(0.16554263), 'energy_cost': array(0.16554263), 'link_delay': array(0.54491), 'link_delay_cost': 0.0}, {'effective_cost': array(0.1635148), 'energy_cost': array(0.1635148), 'link_delay': array(0.54491), 'link_delay_cost': 0.0}, {'effective_cost': array(0.17785985), 'energy_cost': array(0.17785985), 'link_delay': array(0.54491), 'link_delay_cost': 0.0}, {'effective_cost': array(0.17842889), 'energy_cost': array(0.17842889), 'link_delay': array(0.54491), 'link_delay_cost': 0.0}, {'effective_cost': array(0.20416297), 'energy_cost': array(0.20416297), 'link_delay': array(0.54491), 'link_delay_cost': 0.0}, {'effective_cost': array(0.19898979), 'energy_cost': array(0.19898979), 'link_delay': array(0.54491), 'link_delay_cost': 0.0}, {'effective_cost': array(0.23676675), 'energy_cost': array(0.23676675), 'link_delay': array(0.54491), 'link_delay_cost': 0.0}]
 Overall cost for the whole time horizon: 4.3025353200000005
-Simulation duration for W=0: 31.297858953475952 seconds
+Simulation duration for W=0: 26.463914155960083 seconds
 Worst MIP gap for W=0: 0.00% (1 solves, statuses [2])
 Set parameter TimeLimit to value 1200
-Energy prices fetched from ENTSO-E CSV for the countries : ['IT_NORD', 'RS', 'CZ', 'FR', 'BE', 'CH', 'ES', 'NL', 'SE_3', 'PL', 'HR', 'IT_CNOR', 'DK_2', 'GR', 'NO_1', 'HU', 'IE_SEM', 'AT', 'DE_LU']
+Energy prices fetched from ENTSO-E CSV for the countries : ['DE_LU', 'ES', 'HR', 'BE', 'SE_3', 'NL', 'RS', 'AT', 'HU', 'FR', 'CZ', 'IT_CNOR', 'DK_2', 'IT_NORD', 'NO_1', 'CH', 'GR', 'PL', 'IE_SEM']
 25 time slots fetched for each node
 Obj: 0.218526
 
@@ -1447,10 +1464,10 @@ Cost for time slot k=23: 0.23676674999999997
 MIP gap: 0.0 
 
 Overall cost for the whole time horizon: 4.169665218133332
-Simulation duration for W=1: 344.57220005989075 seconds
+Simulation duration for W=1: 282.3437340259552 seconds
 Worst MIP gap for W=1: 0.00% (24 solves, statuses [2])
 Set parameter TimeLimit to value 1200
-Energy prices fetched from ENTSO-E CSV for the countries : ['IT_NORD', 'RS', 'CZ', 'FR', 'BE', 'CH', 'ES', 'NL', 'SE_3', 'PL', 'HR', 'IT_CNOR', 'DK_2', 'GR', 'NO_1', 'HU', 'IE_SEM', 'AT', 'DE_LU']
+Energy prices fetched from ENTSO-E CSV for the countries : ['DE_LU', 'ES', 'HR', 'BE', 'SE_3', 'NL', 'RS', 'AT', 'HU', 'FR', 'CZ', 'IT_CNOR', 'DK_2', 'IT_NORD', 'NO_1', 'CH', 'GR', 'PL', 'IE_SEM']
 26 time slots fetched for each node
 Obj: 0.418256
 
@@ -1684,10 +1701,10 @@ Cost for time slot k=23: 0.23676674999999997
 MIP gap: 0.0 
 
 Overall cost for the whole time horizon: 4.16437424696
-Simulation duration for W=2: 645.1186790466309 seconds
+Simulation duration for W=2: 484.5660810470581 seconds
 Worst MIP gap for W=2: 0.00% (24 solves, statuses [2])
 Set parameter TimeLimit to value 1200
-Energy prices fetched from ENTSO-E CSV for the countries : ['IT_NORD', 'RS', 'CZ', 'FR', 'BE', 'CH', 'ES', 'NL', 'SE_3', 'PL', 'HR', 'IT_CNOR', 'DK_2', 'GR', 'NO_1', 'HU', 'IE_SEM', 'AT', 'DE_LU']
+Energy prices fetched from ENTSO-E CSV for the countries : ['DE_LU', 'ES', 'HR', 'BE', 'SE_3', 'NL', 'RS', 'AT', 'HU', 'FR', 'CZ', 'IT_CNOR', 'DK_2', 'IT_NORD', 'NO_1', 'CH', 'GR', 'PL', 'IE_SEM']
 27 time slots fetched for each node
 Obj: 0.623942
 
@@ -1921,10 +1938,10 @@ Cost for time slot k=23: 0.23949400973333335
 MIP gap: 0.0 
 
 Overall cost for the whole time horizon: 4.165554940853332
-Simulation duration for W=3: 950.0616819858551 seconds
+Simulation duration for W=3: 706.0819869041443 seconds
 Worst MIP gap for W=3: 0.00% (24 solves, statuses [2])
 Set parameter TimeLimit to value 1200
-Energy prices fetched from ENTSO-E CSV for the countries : ['IT_NORD', 'RS', 'CZ', 'FR', 'BE', 'CH', 'ES', 'NL', 'SE_3', 'PL', 'HR', 'IT_CNOR', 'DK_2', 'GR', 'NO_1', 'HU', 'IE_SEM', 'AT', 'DE_LU']
+Energy prices fetched from ENTSO-E CSV for the countries : ['DE_LU', 'ES', 'HR', 'BE', 'SE_3', 'NL', 'RS', 'AT', 'HU', 'FR', 'CZ', 'IT_CNOR', 'DK_2', 'IT_NORD', 'NO_1', 'CH', 'GR', 'PL', 'IE_SEM']
 28 time slots fetched for each node
 Obj: 0.809013
 
@@ -2158,14 +2175,14 @@ Cost for time slot k=23: 0.23949400973333335
 MIP gap: 0.0 
 
 Overall cost for the whole time horizon: 4.165471708506666
-Simulation duration for W=4: 1318.4160509109497 seconds
+Simulation duration for W=4: 904.6538166999817 seconds
 Worst MIP gap for W=4: 0.00% (24 solves, statuses [2])
 Set parameter TimeLimit to value 1200
-/Users/enzohenry/Documents/Stage/Code/simulations.py:217: UserWarning: The figure layout has changed to tight
+/Users/enzohenry/Documents/Stage/Code/simulations.py:235: UserWarning: The figure layout has changed to tight
   plt.tight_layout()
-/Users/enzohenry/Documents/Stage/Code/simulations.py:223: UserWarning: FigureCanvasAgg is non-interactive, and thus cannot be shown
+/Users/enzohenry/Documents/Stage/Code/simulations.py:241: UserWarning: FigureCanvasAgg is non-interactive, and thus cannot be shown
   plt.show()
-Energy prices fetched from ENTSO-E CSV for the countries : ['IT_NORD', 'RS', 'CZ', 'FR', 'BE', 'CH', 'ES', 'NL', 'SE_3', 'PL', 'HR', 'IT_CNOR', 'DK_2', 'GR', 'NO_1', 'HU', 'IE_SEM', 'AT', 'DE_LU']
+Energy prices fetched from ENTSO-E CSV for the countries : ['DE_LU', 'ES', 'HR', 'BE', 'SE_3', 'NL', 'RS', 'AT', 'HU', 'FR', 'CZ', 'IT_CNOR', 'DK_2', 'IT_NORD', 'NO_1', 'CH', 'GR', 'PL', 'IE_SEM']
 29 time slots fetched for each node
 Obj: 0.996125
 
@@ -2399,19 +2416,28 @@ Cost for time slot k=23: 0.23949400973333335
 MIP gap: 0.0 
 
 Overall cost for the whole time horizon: 4.165461952926666
-Simulation duration for W=5: 1482.3895318508148 seconds
+Simulation duration for W=5: 1192.8324627876282 seconds
 Worst MIP gap for W=5: 0.00% (24 solves, statuses [2])
 Set parameter TimeLimit to value 1200
-Energy prices fetched from ENTSO-E CSV for the countries : ['IT_NORD', 'RS', 'CZ', 'FR', 'BE', 'CH', 'ES', 'NL', 'SE_3', 'PL', 'HR', 'IT_CNOR', 'DK_2', 'GR', 'NO_1', 'HU', 'IE_SEM', 'AT', 'DE_LU']
+Energy prices fetched from ENTSO-E CSV for the countries : ['DE_LU', 'ES', 'HR', 'BE', 'SE_3', 'NL', 'RS', 'AT', 'HU', 'FR', 'CZ', 'IT_CNOR', 'DK_2', 'IT_NORD', 'NO_1', 'CH', 'GR', 'PL', 'IE_SEM']
 25 time slots fetched for each node
-W=0 => running without migration, only optimizing for the current time slot k=0
+W<=0 => running without migration, myopic static placement
+Obj: 0.218526
+Cost for each time slot k: [{'effective_cost': array(0.218526), 'energy_cost': array(0.218526), 'link_delay': array(0.368305), 'link_delay_cost': 0.0}, {'effective_cost': array(0.19973033), 'energy_cost': array(0.19973033), 'link_delay': array(0.368305), 'link_delay_cost': 0.0}, {'effective_cost': array(0.20730141), 'energy_cost': array(0.20730141), 'link_delay': array(0.368305), 'link_delay_cost': 0.0}, {'effective_cost': array(0.18345498), 'energy_cost': array(0.18345498), 'link_delay': array(0.368305), 'link_delay_cost': 0.0}, {'effective_cost': array(0.18897192), 'energy_cost': array(0.18897192), 'link_delay': array(0.368305), 'link_delay_cost': 0.0}, {'effective_cost': array(0.15359633), 'energy_cost': array(0.15359633), 'link_delay': array(0.368305), 'link_delay_cost': 0.0}, {'effective_cost': array(0.157625), 'energy_cost': array(0.157625), 'link_delay': array(0.368305), 'link_delay_cost': 0.0}, {'effective_cost': array(0.14876539), 'energy_cost': array(0.14876539), 'link_delay': array(0.368305), 'link_delay_cost': 0.0}, {'effective_cost': array(0.16087493), 'energy_cost': array(0.16087493), 'link_delay': array(0.368305), 'link_delay_cost': 0.0}, {'effective_cost': array(0.15560595), 'energy_cost': array(0.15560595), 'link_delay': array(0.368305), 'link_delay_cost': 0.0}, {'effective_cost': array(0.16035913), 'energy_cost': array(0.16035913), 'link_delay': array(0.368305), 'link_delay_cost': 0.0}, {'effective_cost': array(0.15568656), 'energy_cost': array(0.15568656), 'link_delay': array(0.368305), 'link_delay_cost': 0.0}, {'effective_cost': array(0.15220298), 'energy_cost': array(0.15220298), 'link_delay': array(0.368305), 'link_delay_cost': 0.0}, {'effective_cost': array(0.15786501), 'energy_cost': array(0.15786501), 'link_delay': array(0.368305), 'link_delay_cost': 0.0}, {'effective_cost': array(0.15800623), 'energy_cost': array(0.15800623), 'link_delay': array(0.368305), 'link_delay_cost': 0.0}, {'effective_cost': array(0.15891146), 'energy_cost': array(0.15891146), 'link_delay': array(0.368305), 'link_delay_cost': 0.0}, {'effective_cost': array(0.15772585), 'energy_cost': array(0.15772585), 'link_delay': array(0.368305), 'link_delay_cost': 0.0}, {'effective_cost': array(0.18562581), 'energy_cost': array(0.18562581), 'link_delay': array(0.368305), 'link_delay_cost': 0.0}, {'effective_cost': array(0.1832575), 'energy_cost': array(0.1832575), 'link_delay': array(0.368305), 'link_delay_cost': 0.0}, {'effective_cost': array(0.21626692), 'energy_cost': array(0.21626692), 'link_delay': array(0.368305), 'link_delay_cost': 0.0}, {'effective_cost': array(0.21635114), 'energy_cost': array(0.21635114), 'link_delay': array(0.368305), 'link_delay_cost': 0.0}, {'effective_cost': array(0.2649101), 'energy_cost': array(0.2649101), 'link_delay': array(0.368305), 'link_delay_cost': 0.0}, {'effective_cost': array(0.25044755), 'energy_cost': array(0.25044755), 'link_delay': array(0.368305), 'link_delay_cost': 0.0}, {'effective_cost': array(0.29094378), 'energy_cost': array(0.29094378), 'link_delay': array(0.368305), 'link_delay_cost': 0.0}]
+Overall cost for the whole time horizon: 4.483012259999999
+Simulation duration for W=-1: 22.577422857284546 seconds
+Worst MIP gap for W=-1: 0.00% (1 solves, statuses [2])
+Set parameter TimeLimit to value 1200
+Energy prices fetched from ENTSO-E CSV for the countries : ['DE_LU', 'ES', 'HR', 'BE', 'SE_3', 'NL', 'RS', 'AT', 'HU', 'FR', 'CZ', 'IT_CNOR', 'DK_2', 'IT_NORD', 'NO_1', 'CH', 'GR', 'PL', 'IE_SEM']
+25 time slots fetched for each node
+W<=0 => running without migration, oracle static placement
 Obj: 4.30254
 Cost for each time slot k: [{'effective_cost': array(0.2400424), 'energy_cost': array(0.2400424), 'link_delay': array(0.459885), 'link_delay_cost': 0.0}, {'effective_cost': array(0.22692413), 'energy_cost': array(0.22692413), 'link_delay': array(0.459885), 'link_delay_cost': 0.0}, {'effective_cost': array(0.22086379), 'energy_cost': array(0.22086379), 'link_delay': array(0.459885), 'link_delay_cost': 0.0}, {'effective_cost': array(0.19552638), 'energy_cost': array(0.19552638), 'link_delay': array(0.459885), 'link_delay_cost': 0.0}, {'effective_cost': array(0.19748592), 'energy_cost': array(0.19748592), 'link_delay': array(0.459885), 'link_delay_cost': 0.0}, {'effective_cost': array(0.17465913), 'energy_cost': array(0.17465913), 'link_delay': array(0.459885), 'link_delay_cost': 0.0}, {'effective_cost': array(0.172405), 'energy_cost': array(0.172405), 'link_delay': array(0.459885), 'link_delay_cost': 0.0}, {'effective_cost': array(0.16548289), 'energy_cost': array(0.16548289), 'link_delay': array(0.459885), 'link_delay_cost': 0.0}, {'effective_cost': array(0.16096553), 'energy_cost': array(0.16096553), 'link_delay': array(0.459885), 'link_delay_cost': 0.0}, {'effective_cost': array(0.15564795), 'energy_cost': array(0.15564795), 'link_delay': array(0.459885), 'link_delay_cost': 0.0}, {'effective_cost': array(0.15432257), 'energy_cost': array(0.15432257), 'link_delay': array(0.459885), 'link_delay_cost': 0.0}, {'effective_cost': array(0.14972015), 'energy_cost': array(0.14972015), 'link_delay': array(0.459885), 'link_delay_cost': 0.0}, {'effective_cost': array(0.15313358), 'energy_cost': array(0.15313358), 'link_delay': array(0.459885), 'link_delay_cost': 0.0}, {'effective_cost': array(0.1517612), 'energy_cost': array(0.1517612), 'link_delay': array(0.459885), 'link_delay_cost': 0.0}, {'effective_cost': array(0.15107973), 'energy_cost': array(0.15107973), 'link_delay': array(0.459885), 'link_delay_cost': 0.0}, {'effective_cost': array(0.15937964), 'energy_cost': array(0.15937964), 'link_delay': array(0.459885), 'link_delay_cost': 0.0}, {'effective_cost': array(0.14786965), 'energy_cost': array(0.14786965), 'link_delay': array(0.459885), 'link_delay_cost': 0.0}, {'effective_cost': array(0.16554263), 'energy_cost': array(0.16554263), 'link_delay': array(0.459885), 'link_delay_cost': 0.0}, {'effective_cost': array(0.1635148), 'energy_cost': array(0.1635148), 'link_delay': array(0.459885), 'link_delay_cost': 0.0}, {'effective_cost': array(0.17785985), 'energy_cost': array(0.17785985), 'link_delay': array(0.459885), 'link_delay_cost': 0.0}, {'effective_cost': array(0.17842889), 'energy_cost': array(0.17842889), 'link_delay': array(0.459885), 'link_delay_cost': 0.0}, {'effective_cost': array(0.20416297), 'energy_cost': array(0.20416297), 'link_delay': array(0.459885), 'link_delay_cost': 0.0}, {'effective_cost': array(0.19898979), 'energy_cost': array(0.19898979), 'link_delay': array(0.459885), 'link_delay_cost': 0.0}, {'effective_cost': array(0.23676675), 'energy_cost': array(0.23676675), 'link_delay': array(0.459885), 'link_delay_cost': 0.0}]
 Overall cost for the whole time horizon: 4.3025353200000005
-Simulation duration for W=0: 26.113023042678833 seconds
+Simulation duration for W=0: 26.410644054412842 seconds
 Worst MIP gap for W=0: 0.00% (1 solves, statuses [2])
 Set parameter TimeLimit to value 1200
-Energy prices fetched from ENTSO-E CSV for the countries : ['IT_NORD', 'RS', 'CZ', 'FR', 'BE', 'CH', 'ES', 'NL', 'SE_3', 'PL', 'HR', 'IT_CNOR', 'DK_2', 'GR', 'NO_1', 'HU', 'IE_SEM', 'AT', 'DE_LU']
+Energy prices fetched from ENTSO-E CSV for the countries : ['DE_LU', 'ES', 'HR', 'BE', 'SE_3', 'NL', 'RS', 'AT', 'HU', 'FR', 'CZ', 'IT_CNOR', 'DK_2', 'IT_NORD', 'NO_1', 'CH', 'GR', 'PL', 'IE_SEM']
 25 time slots fetched for each node
 Obj: 0.218526
 
@@ -2645,10 +2671,10 @@ Cost for time slot k=23: 0.23676674999999997
 MIP gap: 0.0 
 
 Overall cost for the whole time horizon: 4.169665218133332
-Simulation duration for W=1: 257.4868628978729 seconds
+Simulation duration for W=1: 259.9554879665375 seconds
 Worst MIP gap for W=1: 0.00% (24 solves, statuses [2])
 Set parameter TimeLimit to value 1200
-Energy prices fetched from ENTSO-E CSV for the countries : ['IT_NORD', 'RS', 'CZ', 'FR', 'BE', 'CH', 'ES', 'NL', 'SE_3', 'PL', 'HR', 'IT_CNOR', 'DK_2', 'GR', 'NO_1', 'HU', 'IE_SEM', 'AT', 'DE_LU']
+Energy prices fetched from ENTSO-E CSV for the countries : ['DE_LU', 'ES', 'HR', 'BE', 'SE_3', 'NL', 'RS', 'AT', 'HU', 'FR', 'CZ', 'IT_CNOR', 'DK_2', 'IT_NORD', 'NO_1', 'CH', 'GR', 'PL', 'IE_SEM']
 26 time slots fetched for each node
 Obj: 0.418256
 
@@ -2882,10 +2908,10 @@ Cost for time slot k=23: 0.23676674999999997
 MIP gap: 0.0 
 
 Overall cost for the whole time horizon: 4.16437424696
-Simulation duration for W=2: 467.62512278556824 seconds
+Simulation duration for W=2: 469.75932908058167 seconds
 Worst MIP gap for W=2: 0.01% (24 solves, statuses [2])
 Set parameter TimeLimit to value 1200
-Energy prices fetched from ENTSO-E CSV for the countries : ['IT_NORD', 'RS', 'CZ', 'FR', 'BE', 'CH', 'ES', 'NL', 'SE_3', 'PL', 'HR', 'IT_CNOR', 'DK_2', 'GR', 'NO_1', 'HU', 'IE_SEM', 'AT', 'DE_LU']
+Energy prices fetched from ENTSO-E CSV for the countries : ['DE_LU', 'ES', 'HR', 'BE', 'SE_3', 'NL', 'RS', 'AT', 'HU', 'FR', 'CZ', 'IT_CNOR', 'DK_2', 'IT_NORD', 'NO_1', 'CH', 'GR', 'PL', 'IE_SEM']
 27 time slots fetched for each node
 Obj: 0.623942
 
@@ -3119,10 +3145,10 @@ Cost for time slot k=23: 0.23949400973333335
 MIP gap: 0.0 
 
 Overall cost for the whole time horizon: 4.165554940853332
-Simulation duration for W=3: 678.142783164978 seconds
+Simulation duration for W=3: 678.8608980178833 seconds
 Worst MIP gap for W=3: 0.01% (24 solves, statuses [2])
 Set parameter TimeLimit to value 1200
-Energy prices fetched from ENTSO-E CSV for the countries : ['IT_NORD', 'RS', 'CZ', 'FR', 'BE', 'CH', 'ES', 'NL', 'SE_3', 'PL', 'HR', 'IT_CNOR', 'DK_2', 'GR', 'NO_1', 'HU', 'IE_SEM', 'AT', 'DE_LU']
+Energy prices fetched from ENTSO-E CSV for the countries : ['DE_LU', 'ES', 'HR', 'BE', 'SE_3', 'NL', 'RS', 'AT', 'HU', 'FR', 'CZ', 'IT_CNOR', 'DK_2', 'IT_NORD', 'NO_1', 'CH', 'GR', 'PL', 'IE_SEM']
 28 time slots fetched for each node
 Obj: 0.809013
 
@@ -3356,14 +3382,14 @@ Cost for time slot k=23: 0.239323556
 MIP gap: 8.548284983424913e-05 
 
 Overall cost for the whole time horizon: 4.165301254773333
-Simulation duration for W=4: 890.3517408370972 seconds
+Simulation duration for W=4: 894.2111873626709 seconds
 Worst MIP gap for W=4: 0.01% (24 solves, statuses [2])
 Set parameter TimeLimit to value 1200
-/Users/enzohenry/Documents/Stage/Code/simulations.py:217: UserWarning: The figure layout has changed to tight
+/Users/enzohenry/Documents/Stage/Code/simulations.py:235: UserWarning: The figure layout has changed to tight
   plt.tight_layout()
-/Users/enzohenry/Documents/Stage/Code/simulations.py:223: UserWarning: FigureCanvasAgg is non-interactive, and thus cannot be shown
+/Users/enzohenry/Documents/Stage/Code/simulations.py:241: UserWarning: FigureCanvasAgg is non-interactive, and thus cannot be shown
   plt.show()
-Energy prices fetched from ENTSO-E CSV for the countries : ['IT_NORD', 'RS', 'CZ', 'FR', 'BE', 'CH', 'ES', 'NL', 'SE_3', 'PL', 'HR', 'IT_CNOR', 'DK_2', 'GR', 'NO_1', 'HU', 'IE_SEM', 'AT', 'DE_LU']
+Energy prices fetched from ENTSO-E CSV for the countries : ['DE_LU', 'ES', 'HR', 'BE', 'SE_3', 'NL', 'RS', 'AT', 'HU', 'FR', 'CZ', 'IT_CNOR', 'DK_2', 'IT_NORD', 'NO_1', 'CH', 'GR', 'PL', 'IE_SEM']
 29 time slots fetched for each node
 Obj: 0.996125
 
@@ -3597,5 +3623,5 @@ Cost for time slot k=23: 0.23932355600000002
 MIP gap: 6.821434303272681e-05 
 
 Overall cost for the whole time horizon: 4.165301254773333
-Simulation duration for W=5: 1114.7850050926208 seconds
+Simulation duration for W=5: 1116.9384241104126 seconds
 Worst MIP gap for W=5: 0.01% (24 solves, statuses [2])

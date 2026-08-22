@@ -52,7 +52,8 @@ class NetworkMapping:
         self.W = W # time window of observation for the foresighted model
         self.S = S # time steps to optimize for the foresighted model, we can only set it to one for now, I don't even think a higher value would be useful.
 
-        self.static = (W==0)
+        self.static = (W<=0)    # W=0 is the oracle static, W=-1 the myopic one
+        self.oracle = (W==0)
         if self.static:
             self.W = 1
 
@@ -525,7 +526,7 @@ class NetworkMapping:
         """
 
         if self.static: # just one time slot, no migration cost
-            self.total_cost = gp.quicksum(self.energy_cost(k, w=0) + self.link_delay_cost(k, w=0) for k in range(self.N)) # in range(1) for myopic static
+            self.total_cost = gp.quicksum(self.energy_cost(k, w=0) + self.link_delay_cost(k, w=0) for k in (range(self.N) if self.oracle else range(1))) # the myopic static only sees the first time slot
             return self.total_cost
 
         self.total_cost = gp.quicksum(
@@ -657,7 +658,7 @@ class NetworkMapping:
             Runs the model by computing it and optimizing it for each time slot k.
         """
         if self.static:
-            print("W=0 => running without migration, only optimizing for the current time slot k=0")
+            print(f"W<=0 => running without migration, {'oracle' if self.oracle else 'myopic'} static placement")
             self.run_nomig()
             return
 

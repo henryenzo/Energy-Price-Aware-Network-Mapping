@@ -27,9 +27,14 @@ def make_network_mapping(model, W, framework=None, **kwargs):
         Passing `framework` forces one single module for the whole W range instead, so the three of them can be compared on the same scenario.
     """
     if framework is None:
-        framework = "optim_relaxed" if (W == 0 or W >= 5) else "optim_on_whole_window"
+        framework = "optim_relaxed" if (W <= 0 or W >= 5) else "optim_on_whole_window"
     NetworkMapping = importlib.import_module(framework).NetworkMapping
     return NetworkMapping(model, W=W, time_limit=TIME_LIMIT, **kwargs)
+
+def W_label(W):
+    """ legend and tick label of one W : W=0 is the static optimized over the whole horizon, W=-1 the one optimized on the first time slot only """
+    return {0: r"Static (oracle)", -1: r"Static (myopic)"}.get(W, rf"$W={W}$")
+
 
 def get_time_index(prices_csv, N, time_stride, offset):
     """ reads the datetime index of the price CSV so the per-time-slot plots can show the clock time instead of the time slot $k$ """
@@ -107,15 +112,12 @@ def trace_cost_curve_for_different_W(model_name, W_list, N, time_stride=1, price
         optim_duration.append((end_time - start_time)/N) # average optimization duration per time slot
         delay_curve.append([cost["link_delay"] for cost in network_mapping.cost]) # only keep the delay cost for the delay curve
     
-    fig, axes = plt.subplots(3, 2, figsize=(14, 6), constrained_layout=True)
+    fig, axes = plt.subplots(3, 2, figsize=(14, 9), constrained_layout=True)
     axes = axes.flatten()
     # Cost per time slot for each W
     ax = axes[0]
     for i, W in enumerate(W_list):
-        if W == 0:
-            ax.plot(range(len(cost_curve[i])), cost_curve[i],label="Static")
-        else:
-            ax.plot(range(len(cost_curve[i])), cost_curve[i], label=rf"$W={W}$")
+        ax.plot(range(len(cost_curve[i])), cost_curve[i], label=W_label(W))
     ax.set_xticks(range(N))
     ax.set_xticklabels(time_ticks, rotation=45, ha='right')
     ax.set_xlabel(r"Time")
@@ -127,6 +129,8 @@ def trace_cost_curve_for_different_W(model_name, W_list, N, time_stride=1, price
     # overall cost as a function of W
     ax2 = axes[1]
     ax2.bar(W_list, overall_costs, width=0.6, color='tab:blue')
+    ax2.set_xticks(list(W_list))
+    ax2.set_xticklabels([W_label(W) for W in W_list], rotation=45, ha='right')
     ax2.set_xlabel(r"$W$")
     ax2.set_ylabel(r"Overall cost")
     ax2.set_title(rf"Overall cost vs $W$ ($N={N}$)")
@@ -134,7 +138,7 @@ def trace_cost_curve_for_different_W(model_name, W_list, N, time_stride=1, price
 
     # secondary y-axis: normalized relative to W=0 
     ax2b = ax2.twinx()
-    base = overall_costs[0] if len(overall_costs) and overall_costs[0] != 0 else 1
+    base = overall_costs[list(W_list).index(0)] if 0 in W_list and overall_costs[list(W_list).index(0)] != 0 else 1
     normalized = [oc / base for oc in overall_costs]
     ax2b.plot(W_list, normalized, marker='s', linestyle='--', color='tab:orange')
     ax2b.set_ylabel(r"Normalized")
@@ -179,15 +183,16 @@ def trace_cost_curve_for_different_W(model_name, W_list, N, time_stride=1, price
 
     # Relative gain of the dynamic model over the static one, same definition as in the batch
     positive_W = [W for W in W_list if W > 0]
-    if 0 in W_list and positive_W:
-        static_cost = overall_costs[list(W_list).index(0)]
+    for W_static in [W for W in (0, -1) if W in W_list]:
+        static_cost = overall_costs[list(W_list).index(W_static)]
         gains = [100 * (static_cost - overall_costs[list(W_list).index(W)]) / static_cost for W in positive_W]
-        ax4.plot(positive_W, gains, marker='s')
-        ax4.axhline(0, color='k', linewidth=0.8)
-        ax4.set_xticks(positive_W)
+        ax4.plot(positive_W, gains, marker='s', label=rf"vs {W_label(W_static)}")
+    ax4.axhline(0, color='k', linewidth=0.8)
+    ax4.set_xticks(positive_W)
     ax4.set_xlabel(r"$W$")
     ax4.set_ylabel(r"Gain over the static model (\%)")
     ax4.set_title(rf"Relative saving vs $W$ ($N={N}$)")
+    ax4.legend()
     ax4.grid()
 
     # Histogram of average price for each country, and the aggregate time spent by VNFs in each country for the last W
@@ -250,7 +255,7 @@ def show_pkl(figname="figure", filename=None):
 
 if __name__ == "__main__":
     model_name = "nobel-eu-8SFC"
-    W_list = [0, 1, 2, 3, 4, 5]
+    W_list = [-1, 0, 1, 2, 3, 4, 5]
     N = 24
     time_stride = 2
     offset = 896    # 2026-07-17 06:00 UTC in energy_prices_batch.csv
