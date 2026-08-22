@@ -59,7 +59,7 @@ def json_parser(model_name: str, file_name = "test_models.json") -> dict:
 
 class NetworkMapping:
 
-    def __init__(self, model: dict, W: int = 1, S: int = 1, N: int = 10, time_stride: int =1, offset: int = 0, prices_csv: str = "energy_prices.csv", graphviz_output_dir: str = "plots/graphs"):
+    def __init__(self, model: dict, W: int = 1, S: int = 1, N: int = 10, time_stride: int =1, offset: int = 0, prices_csv: str = "energy_prices.csv", graphviz_output_dir: str = "plots/graphs", time_limit: float = 60):
         """
             Constructor of the class, takes a dict as input containing the model parameters (physGraph, sfc, availability, requirements etc) and initializes the class attributes accordingly. \n
             The model dict is expected to be imported from the json file using the `json_parser` function. \n
@@ -77,6 +77,7 @@ class NetworkMapping:
         self.gpmodel = gp.Model("mip1")
         #self.gpmodel.Params.MIPGap = 1e-9          # too restrictive
         #self.gpmodel.Params.MIPGapAbs = 1e-12      # too restrictive
+        self.gpmodel.Params.TimeLimit = time_limit  # safety net because sometimes we hit a plateau so the gap becomes too high and the optimization takes forever
         self.optimized_flag = 0
 
         self.physGraph = model["physGraph"]
@@ -127,6 +128,9 @@ class NetworkMapping:
         self.overall_cost = 0
         self.placement = []     # list of dicts, each dict for 1 time slot k, with the mapping of VNFs to physical servers
         self.migrations = []    # list of number of migrations for each time slot k
+        self.mip_gaps = []      # gurobi MIP gap of each time slot, to check afterwards that the results are not just a truncated branch and bound
+        self.statuses = []      # gurobi status of each time slot, same purpose
+        self.time_stride = time_stride
 
         self.verbose = False
 
@@ -253,21 +257,29 @@ class NetworkMapping:
             Subsection 3.3 of my paper draft, the migration constraints are as follows : \n
         """
         self.migration_constrs = []
+        if self.k == 0: # no migration on the first time slot, since it's just the beginning of the lifecycle
+            for v in range(len(self.virtual_nodes)):
+                for i in range(len(self.physical_nodes)):
+                    self.migration_constrs.append(self.gpmodel.addConstr(self.xi[v, i] == 0))
+            self.gpmodel.update()
+            return
+        prev = np.rint(self.prev_phi_node)  # for some reason, gurobi returns a float so we need to round it
         for v in range(len(self.virtual_nodes)):
             for i in range(len(self.physical_nodes)):
                 c1 = self.gpmodel.addConstr(
-                    self.xi[v, i] >= self.phi_node[v, i] - self.prev_phi_node[v, i]
+                    self.xi[v, i] >= self.phi_node[v, i] - prev[v, i]
                 )
                 c0 = self.gpmodel.addConstr(self.xi[v, i] <= self.phi_node[v, i])
 
                 c2 = self.gpmodel.addConstr(
-                    self.xi[v, i] <= 1 - self.prev_phi_node[v, i]
+                    self.xi[v, i] <= 1 - prev[v, i]
                 )
                 self.migration_constrs += [c1, c0, c2]
             c3 = self.gpmodel.addConstr(
                 gp.quicksum(self.xi[v, i] for i in range(len(self.physical_nodes))) <= 1
             )
             self.migration_constrs.append(c3)
+        self.gpmodel.update()
 
     def sfc_partition(self):
         """
@@ -346,16 +358,17 @@ class NetworkMapping:
         #         self.phi_node[v, i] for v in range(len(self.virtual_nodes))
         #     ) for i in range(len(self.physical_nodes))
         # )
-        Watts_over_15min_to_MWh = 1/1000000 * 900/3600 
+        Watts_over_DeltaT_to_MWh = 1/1000000 / 3600 * 900 * self.time_stride # 900 seconds = 15 minutes
         P_idle = 122 # Watts
         P_max = 602 # Watts
         CPU_usage = lambda i: gp.quicksum(
             self.phi_node[v, i] * self.computing_requirements[self.virtual_nodes[v]] 
             for v in range(len(self.virtual_nodes))
         ) / self.computing_availability[self.physical_nodes[i]]
-        Power = lambda i: P_idle + (P_max - P_idle) * CPU_usage(i)
+        scaling_Power = lambda i: (P_max - P_idle) * CPU_usage(i)
+        fix_Power = lambda i: self.sigma[i] * P_idle
         self.Ce = gp.quicksum(
-            self.sigma[i] * self.energy_price[self.physical_nodes[i]][k] * Watts_over_15min_to_MWh * Power(i)
+            self.energy_price[self.physical_nodes[i]][k] * Watts_over_DeltaT_to_MWh * (fix_Power(i) + scaling_Power(i))
             for i in range(len(self.physical_nodes))
         ) 
         return self.Ce
@@ -534,9 +547,7 @@ class NetworkMapping:
         self.generate_node_activation_constraints()
         self.generate_availability_constraints()
         self.generate_access_nodes_constraints()
-        for v_index in range(len(self.virtual_nodes)):
-            for i in range(len(self.physical_nodes)):
-                self.gpmodel.addConstr(self.xi[v_index, i] == 0)
+        self.generate_migration_constraints()
         self.generate_delay_constraints()
         self.total_window_objective_function()  # modified
 
@@ -569,6 +580,8 @@ class NetworkMapping:
         """
         try:
             self.gpmodel.optimize()
+            self.statuses.append(int(self.gpmodel.Status))
+            self.mip_gaps.append(float(self.gpmodel.MIPGap) if self.gpmodel.SolCount > 0 else float('inf'))
             if self.gpmodel.Status == GRB.OPTIMAL:
                 if self.verbose:
                     for v in self.gpmodel.getVars():
@@ -576,10 +589,17 @@ class NetworkMapping:
                 print(f"Obj: {self.gpmodel.ObjVal:g}")
                 self.optimized_flag = 1
                 # self.plot_graph()
+            elif self.gpmodel.Status == GRB.TIME_LIMIT:
+                if self.gpmodel.SolCount > 0:
+                    print(f"Time limit reached ({self.gpmodel.Params.TimeLimit:g}s) : optimality not proven, "
+                        + f"so we're using the best solution found (gap={self.gpmodel.MIPGap*100:.2f}%, obj={self.gpmodel.ObjVal:g}, bound={self.gpmodel.ObjBound:g})")
+                    self.optimized_flag = 1
+                else:
+                    raise ValueError(f"Time limit reached ({self.gpmodel.Params.TimeLimit:g}s) without finding any feasible solution")
             elif self.gpmodel.Status == GRB.INFEASIBLE:
-                print("Model is infeasible")
+                raise ValueError(f"Model is infeasible at k={self.k} (W={self.W})")
             else:
-                print(f"Optimization finished with status {self.gpmodel.Status}")
+                raise ValueError(f"Optimization finished with status {self.gpmodel.Status} at k={self.k} (W={self.W})")
 
         except gp.GurobiError as e:
             print(f"Error code {e.errno}: {e}")

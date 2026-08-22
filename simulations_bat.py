@@ -45,7 +45,7 @@ PRICES_CSV = "energy_prices_batch.csv"  # named differently from my other CSVs, 
 FETCH_START = pd.Timestamp("2026-07-08", tz="UTC")  # only used if the CSV doesn't exist yet
 FETCH_END = pd.Timestamp("2026-07-29", tz="UTC")
 
-W_LIST = [1, 2, 3, 4, 5]  # dynamic models to compare to the static one (W=0 is always run as the baseline)
+W_LIST = [1, 3, 5, 7, 9]  # dynamic models to compare to the static one (W=0 is always run as the baseline)
 TIME_STRIDE = 2  # 2 * 15 minutes = 1 time slot per half hour
 
 BASELINE_N = 24 # baseline duration, in time slots
@@ -53,27 +53,27 @@ BASELINE_DATE = None  # if None then it'll be the middle date of the CSV, so the
 BASELINE_HOUR = 0  # midnight UTC
 BASELINE_RHO = 0.11  # baseline load factor : same fill as nobel-eu-1SFC (16 cores demanded / 140 available = 11.4%)
 
-DURATIONS = [6, 12, 24, 48]  # duration axis, in time slots
+DURATIONS = [12, 24, 36, 48]  # duration axis, in time slots
 DATE_STEP_DAYS = 3  # date axis : one scenario every DATE_STEP_DAYS days of the CSV
 START_HOURS = [0, 6, 12, 18]  # starting hour axis, Zulu time
-RHO_LIST = [0.11]  # load factor axis. Setting it to [BASELINE_RHO] makes it run only the baseline rho in case that's a bad idea to use it
+RHO_LIST = [0.11, 0.25, 0.50, 0.75]  # load factor axis. Setting it to [BASELINE_RHO] makes it run only the baseline rho in case that's a bad idea to use it
 
 # size of the generated models, see Section 5 of my draft paper
 SFC_LEN = 8
-VNF_CPU, VNF_MEM, VNF_BW = 4, 2, 0.1  # cores, GB, GB/s : 0.1 GB/s = 800 Mbps per virtual link, the order of magnitude of a chain aggregating a few thousand sessions
+VNF_CPU, VNF_MEM, VNF_BW = 4, 2, 0.1  # in cores, GB, GB/s
 NODE_CPU, NODE_MEM = 64, 256  # Dell PowerEdge HS5610 (2 x Xeon Gold 6448Y), the SPECpower reference server that I chose in Section 5
 LINK_BW = 10 / 8  # GB/s, a 10 Gbps physical link on every edge of the topology
 
 RESUME = True  # skip the scenarios already present in the results file
 
-PRICES_DF = None  # dataframe of the prices, filled by `ensure_prices_csv` : it is needed to convert the dates and hours into offsets, and to compute the price spread of each scenario
+PRICES_DF = None  
 
 OUTPUT_DIR = Path(__file__).resolve().parent / "simulations_bat"
 PLOTS_DIR = OUTPUT_DIR / "plots"
 RESULTS_DIR = OUTPUT_DIR / "results"
 GRAPHS_DIR_NAME = "simulations_bat/graphs"  # relative to the model file, as expected by NetworkMapping
 
-TIME_LIMIT = 60 # s
+TIME_LIMIT = 120 # s
 
 def add_hyperparams_caption(fig, W_list, entries, stride = TIME_STRIDE):
     """ 

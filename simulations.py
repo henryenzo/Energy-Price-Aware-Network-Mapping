@@ -5,26 +5,31 @@
 #from model_class import NetworkMapping, json_parser
 from optim_relaxed import json_parser
 import matplotlib.pyplot as plt
-import pickle
 import numpy as np
 import pandas as pd
+import importlib
+import pickle
 import time
 import subprocess, os
 
 plt.rcParams["text.usetex"] = True # to use LaTeX in the plots
 
-def make_network_mapping(model, W, **kwargs):
+MODEL_FILE = "load_models.json"     # where the generated rho models live, same file as the batch
+TIME_LIMIT = 1200 # s
+FRAMEWORKS = ["model_class", "optim_on_whole_window", "optim_relaxed"]
+
+def make_network_mapping(model, W, framework=None, **kwargs):
     """
         Picks the exact (fully binary) model for W in [1, 4] and the relaxed one for W=0 (static) or W>=5. \n
         The exact model gives a much tighter Gurobi bound on this range (it lets Gurobi apply RLT cuts on the binary products
         it would otherwise lose by relaxing), but its branch-and-bound blows up past W=4 -- that's when the relaxed model
-        (built for large W, see optim_relaxed.py) takes over.
+        (built for large W, see optim_relaxed.py) takes over. \n
+        Passing `framework` forces one single module for the whole W range instead, so the three of them can be compared on the same scenario.
     """
-    if W == 0 or W >= 5:
-        from optim_relaxed import NetworkMapping
-    else:
-        from optim_on_whole_window import NetworkMapping
-    return NetworkMapping(model, W=W, **kwargs)
+    if framework is None:
+        framework = "optim_relaxed" if (W == 0 or W >= 5) else "optim_on_whole_window"
+    NetworkMapping = importlib.import_module(framework).NetworkMapping
+    return NetworkMapping(model, W=W, time_limit=TIME_LIMIT, **kwargs)
 
 def get_time_index(prices_csv, N, time_stride, offset):
     """ reads the datetime index of the price CSV so the per-time-slot plots can show the clock time instead of the time slot $k$ """
@@ -69,16 +74,16 @@ def plot_as_emf(figure, **kwargs):
         os.remove(svg_filepath)
 
 
-def run_simulation(model_name, W, N, time_stride=1, offset=0, prices_csv="energy_prices.csv"):
+def run_simulation(model_name, W, N, time_stride=1, offset=0, prices_csv="energy_prices.csv", framework=None):
     """
         This function will run the simulation for a given model and hyperparameters. It will return the overall cost for the whole time horizon.
     """
-    model = json_parser(model_name)
-    network_mapping = make_network_mapping(model, W, S=1, N=N, time_stride=time_stride, offset=offset, prices_csv=prices_csv)
+    model = json_parser(model_name, MODEL_FILE)
+    network_mapping = make_network_mapping(model, W, framework=framework, S=1, N=N, time_stride=time_stride, offset=offset, prices_csv=prices_csv)
     network_mapping.run()
     return network_mapping.overall_cost
 
-def trace_cost_curve_for_different_W(model_name, W_list, N, time_stride=1, prices_csv="energy_prices.csv", offset=0):
+def trace_cost_curve_for_different_W(model_name, W_list, N, time_stride=1, prices_csv="energy_prices.csv", offset=0, framework=None):
     """
         This function will run the simulation for a given model and trace the cost per k for different values of W. It will return a list of costs for each value of W.
     """
@@ -90,12 +95,13 @@ def trace_cost_curve_for_different_W(model_name, W_list, N, time_stride=1, price
     optim_duration = []
     delay_curve = []
     for W in W_list:
-        model = json_parser(model_name)
-        network_mapping = make_network_mapping(model, W, S=1, N=N, time_stride=time_stride, offset=offset, prices_csv=prices_csv)
+        model = json_parser(model_name, MODEL_FILE)
+        network_mapping = make_network_mapping(model, W, framework=framework, S=1, N=N, time_stride=time_stride, offset=offset, prices_csv=prices_csv)
         start_time = time.time()
         network_mapping.run()
         end_time = time.time()
         print(f"Simulation duration for W={W}: {end_time - start_time} seconds")
+        print(f"Worst MIP gap for W={W}: {100*max(network_mapping.mip_gaps, default=0):.2f}% ({len(network_mapping.statuses)} solves, statuses {sorted(set(network_mapping.statuses))})")
         cost_curve.append([network_mapping.cost[k]["effective_cost"] for k in range(N)]) # only keep the effective cost for the cost curve
         overall_costs.append(network_mapping.overall_cost)
         optim_duration.append((end_time - start_time)/N) # average optimization duration per time slot
@@ -161,15 +167,28 @@ def trace_cost_curve_for_different_W(model_name, W_list, N, time_stride=1, price
 
     # Total delay
     ax4 = axes[3]
-    for i, W in enumerate(W_list):
-        ax4.plot(range(len(delay_curve[i])), 1000*np.array(delay_curve[i]), label=rf"$W={W}$")   # *1000 to convert to ms
-    ax4.set_xticks(range(N))
-    ax4.set_xticklabels(time_ticks, rotation=45, ha='right')
-    ax4.set_xlabel(r"Time")
-    ax4.set_ylabel(r"Latency (ms)")
-    ax4.set_title(rf"Latency vs Time slot $k$ for different values of $W$ ($N={N}$)")
-    ax4.legend()
-    ax4.grid() 
+    # for i, W in enumerate(W_list):
+    #     ax4.plot(range(len(delay_curve[i])), 1000*np.array(delay_curve[i]), label=rf"$W={W}$")   # *1000 to convert to ms
+    # ax4.set_xticks(range(N))
+    # ax4.set_xticklabels(time_ticks, rotation=45, ha='right')
+    # ax4.set_xlabel(r"Time")
+    # ax4.set_ylabel(r"Latency (ms)")
+    # ax4.set_title(rf"Latency vs Time slot $k$ for different values of $W$ ($N={N}$)")
+    # ax4.legend()
+    # ax4.grid()
+
+    # Relative gain of the dynamic model over the static one, same definition as in the batch
+    positive_W = [W for W in W_list if W > 0]
+    if 0 in W_list and positive_W:
+        static_cost = overall_costs[list(W_list).index(0)]
+        gains = [100 * (static_cost - overall_costs[list(W_list).index(W)]) / static_cost for W in positive_W]
+        ax4.plot(positive_W, gains, marker='s')
+        ax4.axhline(0, color='k', linewidth=0.8)
+        ax4.set_xticks(positive_W)
+    ax4.set_xlabel(r"$W$")
+    ax4.set_ylabel(r"Gain over the static model (\%)")
+    ax4.set_title(rf"Relative saving vs $W$ ($N={N}$)")
+    ax4.grid()
 
     # Histogram of average price for each country, and the aggregate time spent by VNFs in each country for the last W
     ax5 = axes[4]
@@ -206,10 +225,12 @@ def trace_cost_curve_for_different_W(model_name, W_list, N, time_stride=1, price
 
     add_hyperparams_caption(fig, W_list, time_stride, time_index[0])
 
-    plt.tight_layout()
-    plt.savefig(f"plots/simulations/cost_curve_W_{model_name}_N{N}.svg")              # saves as a mere svg file
+    figname = f"cost_curve_W_{model_name}_N{N}" + (f"_{framework}" if framework is not None else "")
 
-    save_pkl(fig, f"cost_curve_W_{model_name}_N{N}")                # saves as an adjustable python pickle file
+    plt.tight_layout()
+    plt.savefig(f"plots/simulations/{figname}.svg")              # saves as a mere svg file
+
+    save_pkl(fig, figname)                # saves as an adjustable python pickle file
     fig = plt.gcf()
     # plot_as_emf(fig, filename=f"cost_curve_W_{model_name}_N{N}")  # saves as an emf file, editable on poweproint or Inkscape
     plt.show()
@@ -228,16 +249,16 @@ def show_pkl(figname="figure", filename=None):
     
 
 if __name__ == "__main__":
-    model_name = "nobel-eu"
-    W_list = [0, 1, 2, 3, 5]
-    W_list = [2]
+    model_name = "nobel-eu-8SFC"
+    W_list = [0, 1, 2, 3, 4, 5]
     N = 24
     time_stride = 2
-    offset = 0
-    prices_csv = "energy_prices_today.csv"
+    offset = 896    # 2026-07-17 06:00 UTC in energy_prices_batch.csv
+    prices_csv = "energy_prices_batch.csv"
     #prices_csv = "energy_prices_3days.csv"
 
-    trace_cost_curve_for_different_W(model_name, W_list, N, time_stride, prices_csv, offset=offset)
+    for framework in FRAMEWORKS:
+        trace_cost_curve_for_different_W(model_name, W_list, N, time_stride, prices_csv, offset=offset, framework=framework)
 
     # show_pkl(figname=f"cost_curve_W_{model_name}_N{N}")
 
