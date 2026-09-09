@@ -1,8 +1,10 @@
 """
     This program will consitue the main simulation engine for the project. Now that we have a clean model class and test models, we can run simulations and compare the results for differnent hyperparameters and different models
-"""
+    
+    Created on July ??th, 2026 by Enzo Henry
+    """
 
-#from model_class import NetworkMapping, json_parser
+#from optim_single_step import NetworkMapping, json_parser
 from optim_relaxed import json_parser
 import matplotlib.pyplot as plt
 import numpy as np
@@ -13,10 +15,11 @@ import time
 import subprocess, os
 
 plt.rcParams["text.usetex"] = True # to use LaTeX in the plots
+plt.rcParams["font.family"] = "serif"
 
 MODEL_FILE = "load_models.json"     # where the generated rho models live, same file as the batch
 TIME_LIMIT = 1200 # s
-FRAMEWORKS = ["model_class", "optim_on_whole_window", "optim_relaxed"]
+FRAMEWORKS = ["optim_single_step", "optim_on_whole_window", "optim_relaxed"]
 
 def make_network_mapping(model, W, framework=None, **kwargs):
     """
@@ -57,7 +60,7 @@ def hyperparams_caption(W_list, time_stride, start_time):
 
 def add_hyperparams_caption(fig, W_list, time_stride, start_time):
     """ adds the mini caption at the bottom-right of the figure, reserving a thin margin below the subplots so it doesn't overlap their tick labels """
-    fig.get_layout_engine().set(rect=(0, 0.035, 1, 1))
+    fig.get_layout_engine().set(rect=(0, 0.035, 1, 0.965))
     fig.text(0.995, 0.005, hyperparams_caption(W_list, time_stride, start_time),
               fontsize=6.5, family='monospace', ha='right', va='bottom',
               bbox=dict(boxstyle='round', facecolor='white', edgecolor='0.6', alpha=0.85, pad=0.3))
@@ -121,7 +124,7 @@ def trace_cost_curve_for_different_W(model_name, W_list, N, time_stride=1, price
     ax.set_xticks(range(N))
     ax.set_xticklabels(time_ticks, rotation=45, ha='right')
     ax.set_xlabel(r"Time")
-    ax.set_ylabel(r"Cost at time slot $k$")
+    ax.set_ylabel(r"Cost at time slot $k$ (EUR)")
     ax.set_title(rf"Cost per time slot $k$ for different values of $W$ ($N={N}$)")
     ax.legend()
     ax.grid()
@@ -132,7 +135,7 @@ def trace_cost_curve_for_different_W(model_name, W_list, N, time_stride=1, price
     ax2.set_xticks(list(W_list))
     ax2.set_xticklabels([W_label(W) for W in W_list], rotation=45, ha='right')
     ax2.set_xlabel(r"$W$")
-    ax2.set_ylabel(r"Overall cost")
+    ax2.set_ylabel(r"Overall cost (EUR)")
     ax2.set_title(rf"Overall cost vs $W$ ($N={N}$)")
     ax2.grid()
 
@@ -163,7 +166,7 @@ def trace_cost_curve_for_different_W(model_name, W_list, N, time_stride=1, price
     ax3.set_xticks(range(N))
     ax3.set_xticklabels(time_ticks, rotation=45, ha='right')
     ax3.set_xlabel(r"Time")
-    ax3.set_ylabel(r"Cost at time slot $k$")
+    ax3.set_ylabel(r"Cost at time slot $k$ (EUR)")
     ax3_secondary.set_ylabel(r"Number of migrations")
     ax3.set_title(rf"Cost components per time slot $k$ and number of migrations for $W={W_list[-1]}$ ($N={N}$)")
     ax3.legend()
@@ -213,7 +216,7 @@ def trace_cost_curve_for_different_W(model_name, W_list, N, time_stride=1, price
     bars1 = ax5.bar(x - width/2, avg_prices, width, label='Avg. Price', color='tab:blue')
     bars2 = ax5_secondary.bar(x + width/2, avg_time_spent, width, label='Avg. Time Spent', color='tab:orange')
     ax5.set_xlabel(r"Country")
-    ax5.set_ylabel(r"Average energy price")
+    ax5.set_ylabel(r"Average energy price (EUR/MWh)")
     ax5_secondary.set_ylabel(r"Aggregate time spent")
     ax5.set_title(rf"Avg. Price and Time Spent per Country for $W={W_list[-1]}$ ($N={N}$)")
     ax5.set_xticks(x)
@@ -224,6 +227,8 @@ def trace_cost_curve_for_different_W(model_name, W_list, N, time_stride=1, price
     ax6 = axes[5]
     ax6.plot(W_list, optim_duration, marker='o')
     ax6.set_xlabel(r"$W$")
+    ax6.set_xticks(list(W_list))
+    ax6.set_xticklabels([W_label(W) for W in W_list], rotation=45, ha='right')
     ax6.set_ylabel(r"Optimization duration (s)")
     ax6.set_title(rf"Optimization duration vs $W$ ($N={N}$)")
     ax6.grid()
@@ -233,6 +238,7 @@ def trace_cost_curve_for_different_W(model_name, W_list, N, time_stride=1, price
     figname = f"cost_curve_W_{model_name}_N{N}" + (f"_{framework}" if framework is not None else "")
 
     plt.tight_layout()
+    os.makedirs("plots/simulations", exist_ok=True)   # the plots/ tree is not versioned, recreate it if needed
     plt.savefig(f"plots/simulations/{figname}.svg")              # saves as a mere svg file
 
     save_pkl(fig, figname)                # saves as an adjustable python pickle file
@@ -260,7 +266,6 @@ if __name__ == "__main__":
     time_stride = 2
     offset = 896    # 2026-07-17 06:00 UTC in energy_prices_batch.csv
     prices_csv = "energy_prices_batch.csv"
-    #prices_csv = "energy_prices_3days.csv"
 
     for framework in FRAMEWORKS:
         trace_cost_curve_for_different_W(model_name, W_list, N, time_stride, prices_csv, offset=offset, framework=framework)

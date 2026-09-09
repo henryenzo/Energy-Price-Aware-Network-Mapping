@@ -7,15 +7,15 @@
 
     VNFs are named "v<position>_<instance>", e.g. "v2_3" is the 2nd VNF of the 3rd SFC.
 
-    Created on August 6th, 2026 by Enzo Henry
+    Created on August 6th, 2026
 """
 
-from stochastic_engine import *
+from data_engine import *
 
 import os
 
 
-# keys are written in this order, the empty strings are the blank lines of test_models.json
+# order of the keys to write, the empty strings are the blank lines of test_models.json
 _KEY_LAYOUT = [
     "physGraph", "virtualGraph", "access_nodes", "",
     "computing_availability", "memory_availability", "bandwidth_availability_dict", "",

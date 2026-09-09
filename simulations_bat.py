@@ -13,7 +13,7 @@
 """
 
 from optim_relaxed import json_parser
-from stochastic_engine import fetch_energy_prices
+from data_engine import fetch_energy_prices
 from cost_vs_load import generate_nobel_eu_entry, append_entry_to_json, compute_rho
 import matplotlib
 matplotlib.use("macosx")    # native backend on my machine
@@ -30,6 +30,7 @@ plt.rcParams["font.family"] = "serif"
 
 # All prints should go to out_console.txt as well so I can read all of them easily after 
 OUT_CONSOLE = Path(__file__).resolve().parent / "simulations_bat" / "out_console.txt" 
+OUT_CONSOLE.parent.mkdir(parents=True, exist_ok=True)   # the simulations_bat/ tree is not versioned
 OUT_CONSOLE.write_text("")
 def print_out(x):
     print(x)
@@ -64,7 +65,7 @@ VNF_CPU, VNF_MEM, VNF_BW = 4, 2, 0.1  # in cores, GB, GB/s
 NODE_CPU, NODE_MEM = 64, 256  # Dell PowerEdge HS5610 (2 x Xeon Gold 6448Y), the SPECpower reference server that I chose in Section 5
 LINK_BW = 10 / 8  # GB/s, a 10 Gbps physical link on every edge of the topology
 
-RESUME = True  # skip the scenarios already present in the results file
+RESUME = True  # skip the scenarios already present in the results file (useful in case of interruption)
 
 PRICES_DF = None  
 
@@ -86,7 +87,7 @@ def add_hyperparams_caption(fig, W_list, entries, stride = TIME_STRIDE):
     date_str = dates.pop() if len(dates) == 1 else "varies (x-axis)"
     hour_str = f"{hours.pop():02d}h" if len(hours) == 1 else "varies (x-axis)"
     caption = (f"W = {list(W_list)}  --  step = {step_min} min (stride={stride})  --  S=1 for W in [1,4], S=W otherwise  --  start = {date_str} {hour_str}")
-    fig.get_layout_engine().set(rect=(0, 0.035, 1, 1))
+    fig.get_layout_engine().set(rect=(0, 0.035, 1, 0.965))
     fig.text(0.995, 0.005, caption, fontsize=6.5, family='monospace', ha='right', va='bottom', bbox=dict(boxstyle='round', facecolor='white', edgecolor='0.6', alpha=0.85, pad=0.3))
 
 

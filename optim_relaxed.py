@@ -13,7 +13,7 @@ import scipy.sparse as sp
 import json
 import graphviz
 from pathlib import Path
-from stochastic_engine import get_energy_prices_from_csv
+from data_engine import get_energy_prices_from_csv
 
 from PIL import Image
 import math

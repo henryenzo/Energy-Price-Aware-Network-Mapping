@@ -1,30 +1,21 @@
-""" PERSONAL NOTES AND COMMENTS
-    This program is a simple implementation of the energy price aware network mapping problem for Infrastructure Providers (InP) to reduce their energy costs. The first implementation will take only into account a fraction of the constraints in my draft, and with a not-yet proper modeling of the physical and logical graphs, but it will be a good starting point to test the model and then we can start to add more constraints and a better modeling of the graphs.
-
-    I recall having a program that generates random graphs, it will be useful to test the model with different topologies and different parameters but that's not the purpose of this first draft
-
-    TODO : I have a question relative to the flow conservation constraint. Is it really a sum over each j like in Trung's paper "Accelerating Network Slice Embedding..." or only the neighbours ? I considered only the neighbors here because it doesn't make any sense to map logical links to non-existing physical links, but maybe the variable has a hidden role.
-
-    TODO : multiple SFCs to implement everywhere maybe, for now it's only on the delay constraint. 
-
-    TODO : maybe adapt the prediction window thig to give more importance to early gains, like a discount factor. Because one of the main problems we observe is the fact that W=5 is not always the most efficient because what is optimized is a mean value for the whole window. If another migration is to be done, basically the gain that we were supposed to have is lost because we just changed the placement of the VNFs. So maybe we can consider a discount factor for the future costs, like a geometric series with a discount factor of 0.9 or 0.8, so that the optimizer will prefer to have a lower cost at the beginning of the window rather than at the end.
-
-    TODO : find a better day to conduct the tests, and a larger spectrum too have sometimes where migration is worth and some where it's absolutely not. 
+""" ABOUT THIS FILE.
+    This file contains the class NetworkMapping, in its single-step version : one single set of variables is computed, for the time step k0 that is effectively applied, and the energy cost of the whole observation window [k0, k0+W-1] is summed on this same set of variables to give the optimizer a look-ahead.
+    The number of variables therefore does not grow with W, which makes it the fastest of the three strategies, but the look-ahead is only an estimation, since the future time steps are evaluated as if the placement of k0 was kept.
 
     Created on June 16th, 2026 by Enzo Henry
 """
 
 """ ABOUT THIS BRANCH : foresighted model 
-    This is baseline 3 : we consider time-varying parameters, and a migration cost (for now fixed). We will consider W the time window of estimated (deterministic here) parameters, and S the number of time steps on which we will optimize. 
-    Multiple approaches are possible, considering a space-time variable extension could be too complex and cause scalability issues, so maybe we will consider a pool of "migration-candidate" VNFs and only keep the mapping variables for those VNFs, and then we will have to consider a migration cost for each VNF that is migrated from one node to another. 
+    This is baseline 3 : we consider time-varying parameters, and a migration cost. We will consider W the time window of estimated (deterministic here) parameters, and S the number of time steps on which we will optimize. 
+    Multiple approaches are possible, considering a space-time variable extension could be too complex and cause scalability issues. 
 
     other ways to do it : 
-    - relax the integer constraint on the interval [k+S, k+W] so that we can have a continuous variable for the mapping of the VNFs, so the complexity goes from linear to the time window W to logarithmic (I think it was in the chapter 7 of Wolsey's "Integer Programming" book)
+    - relax the integer constraint on the interval [k+S, k+W] so that we can have a continuous variable for the mapping of the VNFs (this is now optim_relaxed.py)
     - warm start the model with the previous mapping allows the optimizer to converge faster and avoid instability (migration cost function will penalize the model for migrating VNFs unnecessarily anyways)
-    - warm start using Machine Learning. Supervised learning to predict the mapping of the VNFs for the next time step, and then use this prediction as a warm start for the optimization model (I need to finish reading Nair et al. 2021 (arXiv:2012.13349v3)). Basically a binary classifier on each VNF. For this I will need a pretty good graph dataset or a good graph generator (in that case I will most certainly use NetworkX as Trung and Michel told me). I'm working on the stochastic engine module to generate all the parameters for the model, this won't take too long imo.
+    - warm start using Machine Learning. Supervised learning to predict the mapping of the VNFs for the next time step, and then use this prediction as a warm start for the optimization model (I need to finish reading Nair et al. 2021 (arXiv:2012.13349v3)). Basically a binary classifier on each VNF. For this I will need a pretty good graph dataset or a good graph generator (in that case I will most certainly use NetworkX as Trung and Michel told me).
 
     Actually we will do as such : we consider the parameters on a window W of observation and we'll decide on only S=1 time step, so with only one set of variables for the mapping of the VNFs.
-    For that we'll be needing a few additional functions total_window_cost, migration_cost, total_window_constraints, and total_window_objective_function.
+    For that we'll be needing a few additional functions total_window_cost, migration_cost, and total_window_objective_function.
 """
 
 import gurobipy as gp
@@ -34,7 +25,7 @@ import scipy.sparse as sp
 import json
 import graphviz
 from pathlib import Path
-from stochastic_engine import get_energy_prices_from_csv
+from data_engine import get_energy_prices_from_csv
 
 from PIL import Image
 import math

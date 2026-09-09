@@ -1,8 +1,10 @@
 """
-    This is my first attempt at making a generator of stochastic parameters.
-    For now, it just prints the thing but maybe later it'll save it directly into the json file or something like that.
+    Every input the optimization models need, in one module : the day-ahead energy prices fetched from the
+    ENTSO-E transparency platform API or read back from a CSV, the parser of the test model JSON files, and
+    the generators that produce the remaining parameters (random graphs, random prices, country assignment).
 
-    It will now also get the energy price from the ENTSO-E transparency platform API, and overall be a module for helper functions
+    It started as my first attempt at a generator of random parameters, hence the "random" / "stochastic"
+    request keywords still accepted by the generators, but most of what it serves today is real data.
 
     TODO: random graph generator
 
@@ -124,7 +126,7 @@ def get_energy_prices_from_csv(csv_file_name="energy_prices.csv", time_slots=10,
     
     return prices_dict
     
-def json_parser(model_name: str, file_name = "test_models.json") -> dict: # same as in model_class.py
+def json_parser(model_name: str, file_name = "test_models.json") -> dict: # same as in optim_single_step.py
     """
         Helper function to parse the json file containing the test models and return the parameters of the model as a dict.\n
         Arguments:  
@@ -284,10 +286,8 @@ if __name__ == "__main__":
     model = json_parser("nobel-eu")
     country_list = list(set(model["node_country"].values()))
 
-    #fetch_energy_prices(country_list=country_list, csv_file_name="energy_prices.csv")
+    #fetch_energy_prices(country_list=country_list, csv_file_name="energy_prices.csv", start=start, end=end)
 
     #print(generate_virtual_graph([7]))
     #random_graph = generate_random_graph(50)
     #print(random_graph)
-
-    fetch_energy_prices(csv_file_name="energy_prices_3days.csv", country_list=country_list, start=start, end=end)
