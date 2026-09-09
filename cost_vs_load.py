@@ -7,7 +7,7 @@
 
     VNFs are named "v<position>_<instance>", e.g. "v2_3" is the 2nd VNF of the 3rd SFC.
 
-    Created on August 6th, 2026
+    Created on August 6th, 2026 by Claude AI, edited by Enzo Henry
 """
 
 from data_engine import *
